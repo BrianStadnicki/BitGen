@@ -67,7 +67,7 @@ Next, build the Docker image and launch a container. This process will take appr
 # Build the Docker image
 docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t bitgen-ae ./docker
 # Launch the Docker container
-docker run -it --rm --gpus all -v $(pwd):/BitGen bitgen-ae:latest /bin/bash
+docker run -it --rm --gpus all -u root -v $(pwd):/BitGen bitgen-ae:latest /bin/bash
 ```
 You will automatically be placed inside the container's shell, where the environment is fully configured.
 
@@ -108,7 +108,8 @@ BitGen translates bitstream programs into CUDA code. In this artifact, we use `i
 
 ```bash
 # Building BitGen
-pip install .
+source /opt/conda/etc/profile.d/conda.sh && conda activate bitgen-py310
+pip install --no-build-isolation .
 # Building Baseline
 ./scripts/install_icgrep.sh
 ./scripts/install_hs.sh
