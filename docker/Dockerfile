@@ -1,9 +1,6 @@
 FROM nvidia/cuda:12.8.0-devel-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
-ARG USER_ID
-ARG GROUP_ID
-
 # Use bash shell for conda activation
 SHELL ["/bin/bash", "-c"]
 
@@ -15,11 +12,6 @@ RUN apt-get update && apt-get install -y \
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test && \
     apt-get update
 RUN apt-get install -y gcc-13 g++-13
-
-RUN groupadd -g ${GROUP_ID} myuser \
-    && useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash myuser \
-    && usermod -aG sudo myuser \
-    && echo "myuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # ngAP
 RUN apt-get install -y libtbb2-dev
@@ -47,25 +39,24 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 && \
 ENV PATH="/opt/conda/bin:${PATH}"
 RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-py310_25.1.1-2-Linux-x86_64.sh \
     && bash Miniconda3-py310_25.1.1-2-Linux-x86_64.sh -b -p /opt/conda \
-    && rm Miniconda3-py310_25.1.1-2-Linux-x86_64.sh \
-    && chown -R myuser:myuser /opt/conda
+    && rm Miniconda3-py310_25.1.1-2-Linux-x86_64.sh
 RUN conda config --set always_yes yes \
     && conda config --set channel_priority strict \
     && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
     && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
-RUN conda create -n bitgen-py310 python=3.10 -y \
+RUN conda create -n bitgen-py313 python=3.13 -y \
     && source /opt/conda/etc/profile.d/conda.sh \
-    && conda activate bitgen-py310 \
+    && conda activate bitgen-py313 \
     && conda config --add channels conda-forge \
     && conda install -y cuda-cccl cuda-version=13.2 \
     && pip install typing-extensions --index-url https://pypi.org/simple \
     && pip install torch==2.9.1+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 \
-    && pip install cuda-python==13.2 numpy scipy matplotlib networkx colorama pandas bitarray tqdm torchviz pynvml colorlog pyyaml pygraphviz \
+    && pip install cuda-python==13.2 numpy cuda-stubs scipy matplotlib networkx colorama pandas bitarray tqdm torchviz pynvml colorlog pyyaml pygraphviz \
     && pip install git+https://github.com/getianao/figurePlotter.git@2c65e40a8f017fbde058a6fe09b315ee64da4301
 
-RUN echo "source /opt/conda/etc/profile.d/conda.sh && conda activate bitgen-py310" >> /home/myuser/.bashrc
-RUN echo "export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6" >> /home/myuser/.bashrc
+RUN echo "source /opt/conda/etc/profile.d/conda.sh && conda activate bitgen-py313" >> /root/.bashrc
+RUN echo "export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6" >> /root/.bashrc
 
 CMD ["bash", "--login"]
 
@@ -79,6 +70,4 @@ ENV PATH=${BITGEN_ROOT}/VASim:${PATH}
 ENV CUDA_HOME=/usr/local/cuda
 
 COPY . /BitGen
-RUN chown -R myuser:myuser /BitGen
-USER myuser
 WORKDIR /BitGen

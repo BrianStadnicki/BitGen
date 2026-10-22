@@ -9,6 +9,8 @@ from cuda.bindings.runtime import (
     cudaGetDeviceProperties,
     cudaKernelSetAttributeForDevice,
     cudaFuncAttribute,
+    cudaDeviceGetAttribute,
+    cudaDeviceAttr
 )
 import os
 import numpy as np
@@ -309,9 +311,9 @@ class CUDA_Kernel:
         print("CUDA device info:")
         print(f"    Device ame: {cudaDeviceProp.name}")
         print(f"    Clock rate (MHz): {torch.cuda.clock_rate()}")
-        print(f"    Max Clock rate (MHz): {cudaDeviceProp.clockRate/1000}")
-        print(f"    Memory clock rate (MHz): {cudaDeviceProp.memoryClockRate/1000}")
-        print(f"    Multiprocessor count: {cudaDeviceProp.multiProcessorCount}")
+        print(f"    Max Clock rate (MHz): {cudaDeviceGetAttribute(cudaDeviceAttr.cudaDevAttrClockRate, self.cuDevice)[1]/1000}")
+        print(f"    Memory clock rate (MHz): {cudaDeviceGetAttribute(cudaDeviceAttr.cudaDevAttrMemoryClockRate, self.cuDevice)[1]/1000}")
+        print(f"    Multiprocessor count: {cudaDeviceGetAttribute(cudaDeviceAttr.cudaDevAttrMultiProcessorCount, self.cuDevice)[1]}")
         print(f"    Total global memory: {cudaDeviceProp.totalGlobalMem}")
         print(
             f"    Max shared memory per multiprocessor: {cudaDeviceProp.sharedMemPerMultiprocessor}"

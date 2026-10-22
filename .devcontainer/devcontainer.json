@@ -1,0 +1,32 @@
+{
+    "name": "Bitgen",
+    "build":{
+        "dockerfile": "../docker/Dockerfile",
+        "context": "../"
+    }, 
+    "customizations": {
+        "settings": {
+            "python.defaultInterpreterPath": "/opt/conda/envs/bitgen-py313/bin/python",
+            "python.analysis.extraPaths": [
+                "bitgen",
+                "/opt/conda/envs/bitgen-py313/lib/python3.13/site-packages/"
+            ]
+        },
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "ms-python.debugpy",
+                "ms-python.vscode-python-envs",
+                "ms-vscode-remote.remote-containers"
+            ]
+        }
+    },
+    "mounts": [
+        "source=../BitGen,target=/BitGen,type=bind,consistency=cache"
+    ],
+    "runArgs": [
+        "--gpus",
+        "all"
+    ]
+}
