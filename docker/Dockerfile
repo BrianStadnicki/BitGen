@@ -58,10 +58,10 @@ RUN conda create -n bitgen-py310 python=3.10 -y \
     && source /opt/conda/etc/profile.d/conda.sh \
     && conda activate bitgen-py310 \
     && conda config --add channels conda-forge \
-    && conda install -y cuda-cccl cuda-version=12.8 \
+    && conda install -y cuda-cccl cuda-version=13.2 \
     && pip install typing-extensions --index-url https://pypi.org/simple \
     && pip install torch==2.9.1+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 \
-    && pip install cuda-python==12.8 numpy scipy matplotlib networkx colorama pandas bitarray tqdm torchviz pynvml colorlog pyyaml pygraphviz \
+    && pip install cuda-python==13.2 numpy scipy matplotlib networkx colorama pandas bitarray tqdm torchviz pynvml colorlog pyyaml pygraphviz \
     && pip install git+https://github.com/getianao/figurePlotter.git@2c65e40a8f017fbde058a6fe09b315ee64da4301
 
 RUN echo "source /opt/conda/etc/profile.d/conda.sh && conda activate bitgen-py310" >> /home/myuser/.bashrc
