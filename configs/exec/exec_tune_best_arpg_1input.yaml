@@ -100,7 +100,7 @@ schemes:
       cuda-register-num: 128
       cuda_block_size: 512
       pass-cc-advanced: 1
-      pass-cc-advanced-max: 32
+      pass-cc-advanced-max: 16
       pass-short-circuit: 1
       pass-short-circuit-interval: 1
       pass-short-circuit-syncpoint: 0
