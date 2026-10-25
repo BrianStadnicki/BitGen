@@ -41,19 +41,16 @@ RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-py310_25.1.1-2-Linux-
     && bash Miniconda3-py310_25.1.1-2-Linux-x86_64.sh -b -p /opt/conda \
     && rm Miniconda3-py310_25.1.1-2-Linux-x86_64.sh
 RUN conda config --set always_yes yes \
-    && conda config --set channel_priority strict \
+    && conda config --set channel_priority flexible \
     && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
     && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
-RUN conda create -n bitgen-py313 python=3.13 -y \
+COPY . /BitGen
+WORKDIR /BitGen
+
+RUN conda env create -f environment.yaml -y \
     && source /opt/conda/etc/profile.d/conda.sh \
-    && conda activate bitgen-py313 \
-    && conda config --add channels conda-forge \
-    && conda install -y cuda-cccl cuda-version=13.2 \
-    && pip install typing-extensions --index-url https://pypi.org/simple \
-    && pip install torch==2.9.1+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 \
-    && pip install cuda-python==13.2 numpy cuda-stubs scipy matplotlib networkx colorama pandas bitarray tqdm torchviz pynvml colorlog pyyaml pygraphviz \
-    && pip install git+https://github.com/getianao/figurePlotter.git@2c65e40a8f017fbde058a6fe09b315ee64da4301
+    && conda activate bitgen-py313
 
 RUN echo "source /opt/conda/etc/profile.d/conda.sh && conda activate bitgen-py313" >> /root/.bashrc
 RUN echo "export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6" >> /root/.bashrc
@@ -69,5 +66,3 @@ ENV PATH=${BITGEN_ROOT}/ngAP/code/build/bin:${PATH}
 ENV PATH=${BITGEN_ROOT}/VASim:${PATH}
 ENV CUDA_HOME=/usr/local/cuda
 
-COPY . /BitGen
-WORKDIR /BitGen
