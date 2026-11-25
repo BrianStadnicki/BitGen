@@ -34,8 +34,8 @@ class cc_advance_pass:
         self, adv_var_stored, inst_id, insert_insts, var_name_map, first_adv_pos
     ):
         # Insert memory store for previous `cc_advance_max_num` advance inst at first_adv_pos.
-        cc_advance_max_num = cfg.get_config("pass_cc_advanced_max")
-        block_size = cfg.get_config("block_size")[0]
+        cc_advance_max_num = cfg.GLOBAL_CONFIG["pass_cc_advanced_max"]
+        block_size = cfg.GLOBAL_CONFIG["block_size"][0]
         if cc_advance_max_num < len(adv_var_stored):
             raise Exception(
                 f"cc_advance_max_num {cc_advance_max_num} < len(adv_var_stored) {len(adv_var_stored)}"
@@ -67,8 +67,8 @@ class cc_advance_pass:
         for inst_id, inst in enumerate(insts):
             comment = ""
             ret_id = inst.ret
-            cc_advance_max_num = cfg.get_config("pass_cc_advanced_max")
-            block_size = cfg.get_config("block_size")[0]
+            cc_advance_max_num = cfg.GLOBAL_CONFIG["pass_cc_advanced_max"]
+            block_size = cfg.GLOBAL_CONFIG["block_size"][0]
 
             # Disable cc_advance for while loop body.
             # reset advance_count to 0.
@@ -160,7 +160,7 @@ class cc_advance_pass:
 
                 for cc_var, cc_adv_id, adv_count in var_cc_adv:
                     if (
-                        cfg.get_config("pass_cc_advanced_merge_cc")
+                        cfg.GLOBAL_CONFIG["pass_cc_advanced_merge_cc"]
                         and cc_var in adv_var_stored
                     ):
                         shared_adv_mem_id = adv_var_stored.index(cc_var) + 1
@@ -236,7 +236,7 @@ class cc_advance_pass:
                     # new_inst_adv.dymatic_offset = True
                     if pre_load:
                         if (
-                            cfg.get_config("pass_cc_advanced_merge_cc")
+                            cfg.GLOBAL_CONFIG["pass_cc_advanced_merge_cc"]
                             and align_operand in adv_var_stored
                         ):
                             shared_adv_mem_id = adv_var_stored.index(align_operand) + 1

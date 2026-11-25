@@ -96,7 +96,7 @@ class BsInst:
 
 def get_max_advance_offset(insts):
         max_advance_offset = 0
-        if cfg.get_config("pass_cc_advanced"):
+        if cfg.GLOBAL_CONFIG["pass_cc_advanced"]:
             for inst in insts:
                 if inst.type == BsInstType.ADVANCE:
                     max_advance_offset = max(max_advance_offset, inst.operand2)

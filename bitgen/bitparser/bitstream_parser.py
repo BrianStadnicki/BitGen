@@ -215,7 +215,7 @@ class BitstreamParser:
             condition = self.get_var(arguments_right[1])
             var_right_2 = self.get_var(arguments_right[2])
             var_right_3 = self.get_var(arguments_right[3])
-            if cfg.get_config("backend") == "cuda":
+            if cfg.GLOBAL_CONFIG["backend"] == "cuda":
                 # Separate it into three operations
                 not_condition = self.add_var("sel_not_" + arguments_right[1])
                 mask_var_right_2 = self.add_var("sel_mask_" + arguments_right[2])
@@ -248,14 +248,14 @@ class BitstreamParser:
 
     def parse_file(self, file_path) -> list:
         insts = []
-        if cfg.get_config("backend") == "cuda":
+        if cfg.GLOBAL_CONFIG["backend"] == "cuda":
             basis_stream_var = self.add_var("basic_stream")
             for i in range(8):
                 basis_var = self.add_var(f"basis{i}")
                 inst = BsStreamLoad([basis_stream_var], basis_var)
                 inst.stream_index = f"idx + {i} * n_unit_basic"
                 insts.append(inst)
-        elif cfg.get_config("backend") == "torch":
+        elif cfg.GLOBAL_CONFIG[backend] == "torch":
             for i in range(8):
                 basis_var = self.add_var(f"basis{i}")
                 inst = BsAssign([f"basic_stream[{i}]"], basis_var)
@@ -267,7 +267,7 @@ class BitstreamParser:
             codes = f.read().split("\n")
             insts.extend(self.parse_lines(codes))
 
-        if cfg.get_config("backend") == "cuda":
+        if cfg.GLOBAL_CONFIG["backend"] == "cuda":
             var_result_stream = self.add_var(f"bs_result_stream")
             inst_stream_store = BsStreamStore([insts[-1].ret], var_result_stream)
             inst_stream_store.use_or = True

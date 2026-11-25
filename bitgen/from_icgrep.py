@@ -64,15 +64,15 @@ def validation(regex, input_path, result, as_one_group=False):
             icgrep_output = run_icgrep_from_file(
                 regex,
                 input_path,
-                repeat=cfg.get_config("repeat_input"),
-                input_size=cfg.get_config("input_size"),
+                repeat=cfg.GLOBAL_CONFIG["repeat_input"],
+                input_size=cfg.GLOBAL_CONFIG["input_size"],
             )
         else:
             icgrep_output = run_icgrep(
                 regex,
                 input_path,
-                repeat=cfg.get_config("repeat_input"),
-                input_size=cfg.get_config("input_size"),
+                repeat=cfg.GLOBAL_CONFIG["repeat_input"],
+                input_size=cfg.GLOBAL_CONFIG["input_size"],
             )
         # print(f"icgrep_output: {icgrep_output.stdout}")
         # print(f"icgrep_count: {icgrep_count}, icgrep_throughput: {icgrep_throughput}")
@@ -80,7 +80,7 @@ def validation(regex, input_path, result, as_one_group=False):
         icgrep_throughput = get_throughput(icgrep_output.stdout)
         return icgrep_count
 
-    multi_input = cfg.get_config("multi_input")
+    multi_input = cfg.GLOBAL_CONFIG["multi_input"]
     validation_count = 0
     if isinstance(regex, list):
         # Regex group list
@@ -125,11 +125,11 @@ def run_passes(insts, var_name_map):
     pm = PassManager()
     pm.add_pass(
         print_computation_graph_pass(save_path="computation_graph_0.pdf"),
-        enabled=cfg.get_config("pass_print_graph"),
+        enabled=cfg.GLOBAL_CONFIG["pass_print_graph"],
     )
     pm.add_pass(
         cc_advance_pass(),
-        enabled=cfg.get_config("pass_cc_advanced"),
+        enabled=cfg.GLOBAL_CONFIG["pass_cc_advanced"],
     )
     pm.add_pass(
         remove_alias_pass(),
@@ -137,28 +137,28 @@ def run_passes(insts, var_name_map):
     )
     pm.add_pass(
         print_computation_graph_pass(save_path="computation_graph_1.pdf"),
-        enabled=cfg.get_config("pass_print_graph"),
+        enabled=cfg.GLOBAL_CONFIG["pass_print_graph"],
     )
     pm.add_pass(
         short_circuit_pass(profile=False),
-        enabled=cfg.get_config("pass_short_circuit"),
+        enabled=cfg.GLOBAL_CONFIG["pass_short_circuit"],
     )
     # pm.add_pass(
     #     pass_loop_peeling(),
-    #     enabled=cfg.get_config("pass_loop_peeling"),
+    #     enabled=cfg.GLOBAL_CONFIG["pass_loop_peeling"],
     # )
     # pm.add_pass(
     #     free_intermediate_tensor_pass(),
-    #     enabled=cfg.get_config("pass_free_intermediate_tensor"),
+    #     enabled=cfg.GLOBAL_CONFIG["pass_free_intermediate_tensor"],
     # )
-    if cfg.get_config("backend") == "cuda":
+    if cfg.GLOBAL_CONFIG["backend"] == "cuda":
         pm.add_pass(
-            graph_break_pass(graph_break_type=cfg.get_config("pass_graph_break")),
+            graph_break_pass(graph_break_type=cfg.GLOBAL_CONFIG["pass_graph_break"]),
             enabled=True,
         )
     pm.add_pass(
         inst_stats_pass(),
-        enabled=cfg.get_config("pass_inst_stats"),
+        enabled=cfg.GLOBAL_CONFIG["pass_inst_stats"],
     )
 
     # pm.print_passes()
@@ -188,7 +188,7 @@ def init_kernel(regex_func_num, kernel_path, input_stream_tensor, basic_stream_t
     kernel_init_func = get_attr(kernel_init_func_name, kernels)
 
     result, tmp_streams, kernel_handle, kernel, dyn_stats = kernel_init_func(
-        regex_func_num, input_stream_tensor, basic_stream_tensor, cfg.get_config_dict()
+        regex_func_num, input_stream_tensor, basic_stream_tensor, cfg.GLOBAL_CONFIG
     )
     return result, tmp_streams, kernel_handle, kernel, dyn_stats
 
@@ -201,7 +201,7 @@ def create_symbolic_link_to_code():
         raise FileExistsError(
             f"Cannot create symbolic link because '{symlink_name}' is a regular file or directory."
         )
-    __cached_module_path = cfg.get_config("__cached_module_path")
+    __cached_module_path = cfg.GLOBAL_CONFIG["__cached_module_path"]
     assert __cached_module_path is not None
     os.symlink(__cached_module_path, symlink_name)
 
@@ -232,7 +232,7 @@ def pablo2kernel(
     insts = run_passes(insts, parser.var_name_map)
 
     # Generate kernel code from instruction
-    backend_type = cfg.get_config("backend", default="torch")
+    backend_type = cfg.GLOBAL_CONFIG["backend"]
     # backend_type = "torch"
     print(f"Backend: {backend_type}")
     Gen = create_generator(backend_type)
@@ -256,7 +256,7 @@ def pablo_list2kernel(
     insts_list = []
     var_name_map_list = []
     parallel_pablo2kernel = False
-    if not cfg.get_config("use_cached_code"):
+    if not cfg.GLOBAL_CONFIG["use_cached_code"]:
         assert isinstance(pablo_paths, list)
         # Parse Pablo to instruction
         def compile_pablo(pablo_id, pablo_path):
@@ -300,7 +300,7 @@ def pablo_list2kernel(
                 var_name_map_list.append(result[1])
 
     # Lower IR to kernel code
-    backend_type = cfg.get_config("backend", default="cuda")
+    backend_type = cfg.GLOBAL_CONFIG["backend"]
     print(f"Backend: {backend_type}")
     Gen = create_generator(backend_type)
     gen = Gen(insts_list, var_name_map_list, regex_list=pablo_regexes)
@@ -314,28 +314,27 @@ def pablo_list2kernel(
 def init_cached_path():
     # Same cached path in one run
     # e.g. .cache_bitgen/bitgen_code_2021_0713_123456
-    if not cfg.get_config("__cached_path"):
-        if cfg.get_config("use_cached_code"):
+    if not cfg.GLOBAL_CONFIG["__cached_path"]:
+        if cfg.GLOBAL_CONFIG["use_cached_code"]:
             # select last one
             __cached_path = os.listdir(
-                os.path.join(cfg.get_config("cache_dir", ".cache_bitgen"))
-            )
+                os.path.join(cfg.GLOBAL_CONFIG["cache_dir"]))
             __cached_path = sorted(__cached_path)[-1]
         else:
             format_date = datetime.now().strftime("%Y_%m%d_%H%M%S")
             __cached_path = f"bitgen_code_{format_date}"
         __cached_path = os.path.join(
-            cfg.get_config("cache_dir", ".cache_bitgen"), __cached_path
+            cfg.GLOBAL_CONFIG["cache_dir"], __cached_path
         )
-        cfg.set_config("__cached_path", __cached_path)
+        cfg.GLOBAL_CONFIG["__cached_path"] = __cached_path
 
 
 def init_cached_module_path():
     # Different cached module path for different regex in one run
     # e.g. .cache_bitgen/bitgen_code_2021_0713_123456/code, .cache_bitgen/bitgen_code_2021_0713_123456/code_1
-    __cached_path = cfg.get_config("__cached_path")
+    __cached_path = cfg.GLOBAL_CONFIG["__cached_path"]
     __cached_module_path = os.path.join(__cached_path, "code")
-    if cfg.get_config("use_cached_code"):
+    if cfg.GLOBAL_CONFIG["use_cached_code"]:
         assert os.path.exists(os.path.join(os.getcwd(), __cached_module_path))
     else:
         if os.path.exists(os.path.join(os.getcwd(), __cached_module_path)):
@@ -345,7 +344,7 @@ def init_cached_module_path():
             ):
                 i += 1
             __cached_module_path = f"{__cached_module_path}_{i}"
-    cfg.set_config("__cached_module_path", __cached_module_path)
+    cfg.GLOBAL_CONFIG["__cached_module_path"] = __cached_module_path
 
 
 def compile_regex(
@@ -373,15 +372,14 @@ def compile_regex(
 
     # Cache pablo file
     cache_pablo_path = os.path.join(
-        os.getcwd(), cfg.get_config("__cached_module_path"), "kernels/pablo"
-    )
+        os.getcwd(), cfg.GLOBAL_CONFIG["__cached_module_path"])
     os.makedirs(
         cache_pablo_path,
         exist_ok=True,
     )
     shutil.copy(
         pablo_path,
-        os.path.join(cache_pablo_path, os.path.basename(pablo_path)),
+        os.path.join(cache_pablo_path, os.path.basename(pablo_path), "kernels/pablo"),
     )
 
     print(f"Kernel path: {kernel_path}")
@@ -410,7 +408,7 @@ def compile_xml(
 
     # Cache pablo file
     cache_pablo_path = os.path.join(
-        os.getcwd(), cfg.get_config("__cached_module_path"), "kernels/pablo"
+        os.getcwd(), cfg.GLOBAL_CONFIG["__cached_module_path"]
     )
     os.makedirs(
         cache_pablo_path,
@@ -459,8 +457,8 @@ def compile_regex_group_list(
     pablo_regexes = [None] * len(regex_group_list)
     print("pcrefile2pablo")
 
-    parallel = cfg.get_config("parallel_compile_parabix", True)
-    if not cfg.get_config("use_cached_code"):
+    parallel = cfg.GLOBAL_CONFIG["parallel_compile_parabix"]
+    if not cfg.GLOBAL_CONFIG["use_cached_code"]:
         if parallel:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # Submit tasks to the executor
@@ -506,10 +504,10 @@ def compile_regex_group_list(
         input_stream_tensor,
         basic_stream_tensor,
     )
-    if not cfg.get_config("use_cached_code"):
+    if not cfg.GLOBAL_CONFIG["use_cached_code"]:
         # Cache pablo file
         cache_pablo_path = os.path.join(
-            os.getcwd(), cfg.get_config("__cached_module_path"), "kernels/pablo"
+            os.getcwd(), cfg.GLOBAL_CONFIG["__cached_module_path"], "kernels/pablo"
         )
         os.makedirs(
             cache_pablo_path,
@@ -568,8 +566,8 @@ def run_regex_kernel(
     #     print_ts_as_bs(basic_stream_tensor[0][0][i], msg=f"basis[{i}]:")
 
     # Warm up
-    warmup_iters = cfg.get_config("warmup_iters")
-    exec_iters = cfg.get_config("exec_iters")
+    warmup_iters = cfg.GLOBAL_CONFIG["warmup_iters"]
+    exec_iters = cfg.GLOBAL_CONFIG["exec_iters"]
     print(f"Warm up: {warmup_iters} iters")
     print(f"Run: {exec_iters} iters")
     with torch.no_grad():
@@ -589,17 +587,17 @@ def run_regex_kernel(
     throughput = input_size / avg_duration * 1024  # MB/s
     global_timer.append_data("run_regex", "throughput", throughput)
     # Validation
-    if cfg.get_config("validation"):
+    if cfg.GLOBAL_CONFIG["validation"]:
         print(f"Validation")
         # Result
         reset_tensor(result, tmp_streams)
-        if cfg.get_config("backend") == "cuda":
+        if cfg.GLOBAL_CONFIG["backend"] == "cuda":
             kernel(basic_stream_tensor)
         else:
             result = kernel(basic_stream_tensor)
         bs_result = Bitstream(result.cpu().numpy())
         # bs_result.save(
-        #     os.path.join(os.getcwd(), cfg.get_config("__cached_module_path"), "kernels/result.txt")
+        #     os.path.join(os.getcwd(), cfg.GLOBAL_CONFIG["__cached_module_path"), "kernels/result.txt"]
         # )
         result_count = bs_result.get_count()
 
@@ -616,7 +614,7 @@ def run_regex_kernel(
             global_timer.append_data("run_regex", "check", pass_check)
             # if not pass_check:
             #     raise Exception("Validation failed.")
-    if cfg.get_config("pass_inst_stats_dyn"):
+    if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"]:
         iter_num = dyn_stats[..., :1]
         dyn_offset_num = dyn_stats[..., 1:]
         print("iter_num:", iter_num.shape, iter_num.sum().item())

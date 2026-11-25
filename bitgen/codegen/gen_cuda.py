@@ -19,7 +19,7 @@ class CudaGenerator(Generator):
         self.kernel_wrapper_file_handler = None
         self.kernel_file_handler = None
         self.tmp_streams_num = 0
-        self.parallel_compile = cfg.get_config("parallel_compile_cuda")
+        self.parallel_compile = cfg.GLOBAL_CONFIG["parallel_compile_cuda"]
 
     def close(self):
         if self.kernel_wrapper_file_handler is not None:
@@ -40,7 +40,7 @@ class CudaGenerator(Generator):
 
     def get_max_advance_num(self, insts):
         max_advance_offset = 0
-        # if cfg.get_config("pass_cc_advanced"):
+        # if cfg.GLOBAL_CONFIG["pass_cc_advanced"]:
         #     for inst in insts:
         #         if inst.type == BsInstType.ADVANCE:
         #             max_advance_offset = max(max_advance_offset, inst.operand2)
@@ -66,7 +66,7 @@ class CudaGenerator(Generator):
             "template",
             (
                 "template_dyn_stat.py"
-                if cfg.get_config("pass_inst_stats_dyn")
+                if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"]
                 else "template.py"
             ),
         )
@@ -78,16 +78,16 @@ class CudaGenerator(Generator):
         self.kernel_wrapper_file_handler.write(
             f"tmp_streams_num = {self.tmp_streams_num}\n"
         )
-        if cfg.get_config("pass_inst_stats"):
+        if cfg.GLOBAL_CONFIG["pass_inst_stats"]:
             global_timer.inst_result["tmem"] = (
                 global_timer.inst_result.get("tmem", 0) + self.tmp_streams_num
             )
 
         self.kernel_wrapper_file_handler.write(
-            f"grid_size = {cfg.get_config('grid_size')}  # regex_num, input_num, 1\n"
+            f"grid_size = {cfg.GLOBAL_CONFIG['grid_size']}  # regex_num, input_num, 1\n"
         )
         self.kernel_wrapper_file_handler.write(
-            f"block_size = {cfg.get_config('block_size')}\n"
+            f"block_size = {cfg.GLOBAL_CONFIG['block_size']}\n"
         )
 
     def low_insts(self, insts, var_name_map, var_define_map, indent, file_handler):
@@ -133,13 +133,13 @@ class CudaGenerator(Generator):
     def lower_subgraph(
         self, insts, var_name_map, var_define_map, output_var, indent, file_handler
     ):
-        graph_break_type = cfg.get_config("pass_graph_break")
+        graph_break_type = cfg.GLOBAL_CONFIG["pass_graph_break"]
         indent2 = indent + "    "
         max_advance_num = self.get_max_advance_num(insts)
         max_advance_offset = math.ceil(max_advance_num / 32)
-        block_size = cfg.get_config("block_size")[0]
+        block_size = cfg.GLOBAL_CONFIG["block_size"][0]
 
-        if cfg.get_config("pass_inst_stats"):
+        if cfg.GLOBAL_CONFIG["pass_inst_stats"]:
             global_timer.inst_result["static_advance_num_total"] = (
                 global_timer.inst_result.get("static_advance_num_total", 0) + max_advance_num
             )
@@ -149,7 +149,7 @@ class CudaGenerator(Generator):
 
         if graph_break_type == -1:
             # Fuse all.
-            if cfg.get_config("pass_inst_stats_dyn"):
+            if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"]:
                 input_loop_start = [
                     f"{indent}__shared__ uint32_t dynamic_adv_offset;",
                     f"{indent}__shared__ uint32_t zero_flag;",
@@ -316,7 +316,7 @@ class CudaGenerator(Generator):
         # Group insts by graph break
         insts = insts[len(stream_define_insts):]
         insts_break_group = break_insts(insts)
-        if cfg.get_config("pass_graph_break") == -1:
+        if cfg.GLOBAL_CONFIG["pass_graph_break"] == -1:
             assert len(insts_break_group) == 1
 
         # Generate code for each group
@@ -340,7 +340,7 @@ class CudaGenerator(Generator):
                 kernel_regex_file_handler = open(
                     kernel_file_path, "w", encoding="utf-8"
                 )
-                block_size = cfg.get_config("block_size")[0]
+                block_size = cfg.GLOBAL_CONFIG["block_size"][0]
                 kernel_regex_file_handler.write(f"#define BLOCK_SIZE {block_size}\n")
                 template_path = os.path.join(
                     os.path.dirname(__file__),
@@ -365,7 +365,7 @@ class CudaGenerator(Generator):
             if var_result_stream is not None:
                 var_define_map[var_result_stream] = 1
 
-            if  cfg.get_config("pass_inst_stats_dyn"):
+            if  cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"]:
                 string_kernel_start = [
                     f"// Regex: {(regex_str)}",
                     f'extern "C" __noinline__ __device__ void regex_{insts_id}(uint32_t* basic_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* advance_memory, uint32_t* tmp_streams, uint32_t* dyn_stats) {{',
@@ -395,7 +395,7 @@ class CudaGenerator(Generator):
     def lower_kernel(self):
         # Write pre-defined template.
         if not self.parallel_compile:
-            block_size = cfg.get_config("block_size")[0]
+            block_size = cfg.GLOBAL_CONFIG["block_size"][0]
             self.kernel_file_handler.write(f"#define BLOCK_SIZE {block_size}\n")
             template_path = os.path.join(
                 os.path.dirname(__file__),
@@ -409,14 +409,14 @@ class CudaGenerator(Generator):
 
         # In cuda backend, one block process 1 regex and 1 input stream
         regex_num = len(self.insts_list)
-        input_num = cfg.get_config("multi_input", 1)
-        cfg.set_config("grid_size", (regex_num, input_num, 1))
-        if cfg.get_config("pass_inst_stats"):
+        input_num = cfg.GLOBAL_CONFIG["multi_input"]
+        cfg.GLOBAL_CONFIG["grid_size"] = (regex_num, input_num, 1)
+        if cfg.GLOBAL_CONFIG["pass_inst_stats"]:
             global_timer.inst_result["regex_group_num"] = (
                 global_timer.inst_result.get("regex_group_num", 0) + regex_num
             )
 
-        max_advance_offset_all = cfg.get_config("pass_cc_advanced_max")
+        max_advance_offset_all = cfg.GLOBAL_CONFIG["pass_cc_advanced_max"]
         if max_advance_offset_all < 1:
             raise NotImplementedError("max_advance_offset_all < 1")
 
@@ -425,7 +425,7 @@ class CudaGenerator(Generator):
                 f"typedef unsigned int uint32_t;",
             ]
             for regex_id in range(regex_num):
-                if cfg.get_config("pass_inst_stats_dyn"):
+                if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"]:
                     kernel_link_code.append(
                         f'extern "C" __device__ void regex_{regex_id}(uint32_t* basic_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* advance_memory, uint32_t* tmp_streams, uint32_t* dyn_stats);'
                     )
@@ -436,10 +436,10 @@ class CudaGenerator(Generator):
 
             self.add_lines(self.kernel_file_handler, kernel_link_code)
 
-        block_size = cfg.get_config("block_size")[0]
+        block_size = cfg.GLOBAL_CONFIG["block_size"][0]
 
         string_kernel_start = [
-            """extern "C" __global__ void KernelGenerated(uint32_t* input_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* tmp_streams, uint32_t* dyn_stats) {""" if cfg.get_config("pass_inst_stats_dyn") else """extern "C" __global__ void KernelGenerated(uint32_t* input_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* tmp_streams) {""",
+            """extern "C" __global__ void KernelGenerated(uint32_t* input_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* tmp_streams, uint32_t* dyn_stats) {""" if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"] else """extern "C" __global__ void KernelGenerated(uint32_t* input_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* tmp_streams) {""",
             f"    __shared__ uint32_t advance_memory[{block_size} * {max_advance_offset_all + 1}];", # 0 preserve for sync advance.
             # f"    uint32_t thread_id = blockIdx.x * blockDim.x + threadIdx.x;",
             # f"    uint32_t thread_id_in_block = threadIdx.x;",
@@ -448,7 +448,7 @@ class CudaGenerator(Generator):
             f"    bs_result_stream = bs_result_stream + blockIdx.y * {regex_num} * n_unit_basic + blockIdx.x * n_unit_basic;",
             "",
         ]
-        if cfg.get_config("pass_inst_stats_dyn"):
+        if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"]:
             string_kernel_start.append(
                 f"    dyn_stats = dyn_stats + blockIdx.y * {regex_num} * n_unit_basic + blockIdx.x * n_unit_basic;"
             )
@@ -458,7 +458,7 @@ class CudaGenerator(Generator):
             string_if = "if" if regex_id == 0 else "else if"
             string_invoke_function = [
                 f"{string_if} (blockIdx.x == {regex_id}) {{    // regex_{regex_id}",
-                f"    regex_{regex_id}(input_stream, n_unit_basic, n_char, bs_result_stream, advance_memory, tmp_streams, dyn_stats);" if cfg.get_config("pass_inst_stats_dyn") else f"    regex_{regex_id}(input_stream, n_unit_basic, n_char, bs_result_stream, advance_memory, tmp_streams);",
+                f"    regex_{regex_id}(input_stream, n_unit_basic, n_char, bs_result_stream, advance_memory, tmp_streams, dyn_stats);" if cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"] else f"    regex_{regex_id}(input_stream, n_unit_basic, n_char, bs_result_stream, advance_memory, tmp_streams);",
                 # "if(threadIdx.x == 0) { printf(\"regex_id: %d end\\n\", blockIdx.x); }",
                 f"    return;",
                 "}",
@@ -478,7 +478,7 @@ class CudaGenerator(Generator):
         kerne_wrapper_file_path = self.get_kernel_path(kerne_wrapper_file_name)
         kernel_file_name = "kernel_0.cu"
         kernel_file_path = self.get_kernel_path(kernel_file_name)
-        if cfg.get_config("use_cached_code"):
+        if cfg.GLOBAL_CONFIG["use_cached_code"]:
             print(f"Use cached code: {kerne_wrapper_file_path}")
             print(f"Use cached code: {kernel_file_path}")
             return kerne_wrapper_file_path

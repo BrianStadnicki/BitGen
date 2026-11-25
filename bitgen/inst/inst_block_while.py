@@ -56,7 +56,7 @@ class BsWhile(BsInst):
         #         ret_name = self.get_var_name_cuda(var_map, r)
         #         codes.append(f"{indent}uint32_t " + ret_name + ";")
 
-        graph_break_type = cfg.get_config("pass_graph_break")  # Fuse while loop
+        graph_break_type = cfg.GLOBAL_CONFIG["pass_graph_break"]  # Fuse while loop
 
         condition_name = self.get_var_name_cuda(var_map, self.condition)
 

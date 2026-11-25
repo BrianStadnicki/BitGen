@@ -7,7 +7,7 @@ class Generator:
 
     def __init__(self, insts_list, var_name_map_list, regex_list=None):
         assert len(insts_list) == len(var_name_map_list)
-        if (regex_list is not None) and (not cfg.get_config("use_cached_code")):
+        if (regex_list is not None) and (not cfg.GLOBAL_CONFIG["use_cached_code"]):
             assert len(insts_list) == len(regex_list)
         self.insts_list = insts_list
         self.var_name_map_list = var_name_map_list
@@ -17,7 +17,7 @@ class Generator:
         pass
 
     def get_kernel_path(self, kerne_file_name):
-        __cached_module_path = cfg.get_config("__cached_module_path")
+        __cached_module_path = cfg.GLOBAL_CONFIG["__cached_module_path"]
         assert __cached_module_path is not None
         kernel_file_path = os.path.join(
             os.getcwd(), __cached_module_path, "kernels/", kerne_file_name
@@ -26,7 +26,7 @@ class Generator:
         return kernel_file_path
 
     def gen_kernel_module_file(self, kernel_file_name_list):
-        __cached_module_path = cfg.get_config("__cached_module_path")
+        __cached_module_path = cfg.GLOBAL_CONFIG["__cached_module_path"]
         assert __cached_module_path is not None
         module_file = os.path.join(
             os.getcwd(), __cached_module_path, "kernels/", "__init__.py"

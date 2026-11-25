@@ -25,9 +25,8 @@ def swap_endian(value: np.uint32):
     return swapped
 
 class Bitstream:
-    data = None
 
-    def __init__(self, data: np.ndarray = None):
+    def __init__(self, data: np.ndarray | None = None):
         if isinstance(data, np.ndarray):
             input_shape = list(data.shape)
             if data is not None and data.dtype != bool:
@@ -202,7 +201,7 @@ def transpose_bytestream_to_bitstream(
             with global_timer.time("transpose"):
                 byte_stream_transpose(input_padded, bitstreams)
 
-        if cfg.get_config("backend") == "torch":
+        if cfg.GLOBAL_CONFIG["backend"] == "torch":
             bitstreams = bitstreams.view(torch.uint8)
             bitstreams_shape = bitstreams.shape
             bitstreams = bitstreams.view(
@@ -242,7 +241,7 @@ def transpose_bytestream_to_bitstream_py(
     # print("bitstreams_np", bitstreams_np)
     # print("bitstreams_np", bitstreams_np.shape)
     # TODO(tge): refactor it
-    if cfg.get_config("backend") == "cuda":
+    if cfg.GLOBAL_CONFIG["backend"] == "cuda":
         # uint8 to uint32
         assert bitstreams_np.shape[-1] % 4 == 0
         bitstreams_np_u32 = bitstreams_np.reshape(

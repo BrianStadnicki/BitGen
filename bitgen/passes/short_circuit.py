@@ -102,8 +102,8 @@ class short_circuit_pass:
         # print(paths)
         and_chains = self.get_and_chains(insts, var_name_map, G)
 
-        short_circuit_start_pos = cfg.get_config("pass_short_circuit_start")
-        short_circuit_interval = cfg.get_config("pass_short_circuit_interval")
+        short_circuit_start_pos = cfg.GLOBAL_CONFIG["pass_short_circuit_start"]
+        short_circuit_interval = cfg.GLOBAL_CONFIG["pass_short_circuit_interval"]
         if short_circuit_interval == 0:
             short_circuit_interval = 1
         if short_circuit_interval < short_circuit_start_pos:
@@ -260,7 +260,7 @@ class short_circuit_pass:
             )
             inserted_node = []
             inserted_node2 = []
-            if cfg.get_config("pass_short_circuit_syncpoint"):
+            if cfg.GLOBAL_CONFIG["pass_short_circuit_syncpoint"]:
                 for and_chain_node_id, and_chain_node_id_next in zip(
                     interval_list, interval_list[1:]
                 ):
@@ -303,7 +303,7 @@ class short_circuit_pass:
                             break
 
             # Insert branch with fixed interval in and_chain.
-            if cfg.get_config("pass_short_circuit_interval_disable") == 0:
+            if cfg.GLOBAL_CONFIG["pass_short_circuit_interval_disable"] == 0:
                 for and_inst_id in interval_list:
                     and_node = and_chain[and_inst_id]  # id in insts
                     if any(
@@ -372,7 +372,7 @@ class short_circuit_pass:
         MyLogger.debug(
             f"[short_circuit] skip {removed_inst_num} insts on {removed_chain_num} chains "
         )
-        if cfg.get_config("pass_inst_stats"):
+        if cfg.GLOBAL_CONFIG["pass_inst_stats"]:
             if (
                 not hasattr(global_timer, "inst_result")
                 or global_timer.inst_result is None

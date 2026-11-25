@@ -1,39 +1,53 @@
+GLOBAL_CONFIG = {
+    "warmup_iters": 0,
+    "exec_iters": 0,
+    "dry_run": False,
 
-import os
-from datetime import datetime
+    # Regex config
+    "regex_num": 0,
+    "regex_group_number": 0,
+    "regex_group_serial": 0, 
+    "balance_regex_groups": 0,
 
+    # Input config
+    "input_size": 0,
+    "repeat_input": 0,
+    "multi_input": 0,
+    "split_input": 0,
 
-class MyConfig:
-    def __init__(self):
-        self.data = {}
-    
-    def __str__(self):
-        return str(self.data)
-    
-    def __repr__(self):
-        return str(self.data)
+    #  Compilation config
+    "pass_cc_advanced": 0,
+    "pass_cc_advanced_max": 0,
+    "pass_cc_advanced_merge_cc": 0,
+    "pass_short_circuit": 0,
+    "pass_short_circuit_start": 0,
+    "pass_short_circuit_interval": 0,
+    "pass_short_circuit_interval_disable": 0,
+    "pass_short_circuit_syncpoint": 0,
+    "pass_graph_break": 0,
+    "pass_print_graph": 0,
+    "pass_inst_stats": 0,
+    "pass_inst_stats_dyn": 0,
+    "parallel_compile_parabix": 0,
+    "parallel_compile_cuda": 0,
+    "parallel_compile_cuda_lto": 0,
+    "backend": "cuda",
 
-GLOBAL_CONFIG = MyConfig()
+    # Backend config: CUDA
+    "block_size": 0,
+    "cuda_register_num": 0,
 
+    # Backend config: Torch
+    "torch_compile": 0,
+    "debug_torch": 0,
 
-def get_config(key, default=None):
-    return GLOBAL_CONFIG.data.get(key, default)
-
-
-def set_config(key, value):
-    GLOBAL_CONFIG.data[key] = value
-
-
-def set_from_dict(config_dict):
-    GLOBAL_CONFIG.data = config_dict
-
-
-def reset_config():
-    GLOBAL_CONFIG.data = {}
-
-
-def get_config_dict():
-    return GLOBAL_CONFIG.data
-
-def print_config():
-    print(GLOBAL_CONFIG.data)
+    # Debug config
+    "profile": True,
+    "print_bitstream": True,
+    "print_bit_start": 0,
+    "print_zeros": True,
+    "validation": 0,
+    "use_cached_code": False,
+    "cached_code_dir": ".cache_bitgen",
+    "__cached_module_path": "kernels/pablo"
+}

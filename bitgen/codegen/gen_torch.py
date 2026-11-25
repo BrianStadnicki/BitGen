@@ -164,7 +164,7 @@ class TorchGenerator(Generator):
         # Initialize kernel file
         kerne_file_name = "kernel_0.py"
         kernel_file_path = self.get_kernel_path(kerne_file_name)
-        if cfg.get_config("use_cached_code"):
+        if cfg.GLOBAL_CONFIG["use_cached_code"]:
             print(f"Use cached code: {kernel_file_path}")
             return kernel_file_path
         else:

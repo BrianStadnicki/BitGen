@@ -146,7 +146,8 @@ def run_bitgen_group_list(
     print(
         f"Regex group list info: regex_num={sum([len(group) for group in regex_group_list])}, list_size = {len(regex_group_list)}, group_size = {len(regex_group_list[0])}"
     )
-    if cfg.get_config("regex_group_serial"):
+    
+    if cfg.GLOBAL_CONFIG.data["regex_group_serial"]:
         for regex_group_id, regex_group in enumerate(regex_group_list):
             global_timer.set_group("regex_group_" + str(regex_group_id))
             regex_group = [regex_group]
@@ -156,7 +157,7 @@ def run_bitgen_group_list(
                 input_stream_tensor,
                 basic_stream_tensor,
             )
-            if not cfg.get_config("dry_run"):
+            if not cfg.GLOBAL_CONFIG["dry_run"]:
                 print(f"Run regex group {regex_group_id}")
                 run_regex_kernel(
                     kernel_path,
@@ -172,7 +173,7 @@ def run_bitgen_group_list(
             input_stream_tensor,
             basic_stream_tensor,
         )
-        if not cfg.get_config("dry_run"):
+        if not cfg.GLOBAL_CONFIG["dry_run"]:
             run_regex_kernel(
                 kernel_path,
                 regex_group_list,
@@ -190,7 +191,7 @@ def run_bitgen_str(regex, input_path, input_stream_tensor, basic_stream_tensor):
         input_stream_tensor,
         basic_stream_tensor,
     )
-    if not cfg.get_config("dry_run"):
+    if not cfg.GLOBAL_CONFIG["dry_run"]:
         run_regex_kernel(
             kernel_path,
             regex,
@@ -206,7 +207,7 @@ def run_xml(input_path, input_stream_tensor, basic_stream_tensor):
         input_stream_tensor,
         basic_stream_tensor,
     )
-    if not cfg.get_config("dry_run"):
+    if not cfg.GLOBAL_CONFIG["dry_run"]:
         run_regex_kernel(
             kernel_path,
             "xml_parser",
@@ -220,14 +221,14 @@ def run_bitgen(input_path, regex, regex_from_file=False, is_xml = False):
     input_stream = load_input_stream(input_path)
 
     # Limit input stream length
-    input_size = cfg.get_config("input_size")
+    input_size = cfg.GLOBAL_CONFIG["input_size"]
     if input_size:
         MyLogger.info(f"[Inputstream]: Limit input stream length to {input_size} bytes")
         input_stream = input_stream[:input_size]
     input_stream_tensor = torch.ByteTensor(list(input_stream))
 
     # Replicate input stream
-    repeat_input_num = cfg.get_config("repeat_input")
+    repeat_input_num = cfg.GLOBAL_CONFIG["repeat_input"]
     if repeat_input_num > 1:
         original_shape = input_stream_tensor.size()
         input_stream_tensor = input_stream_tensor.repeat(repeat_input_num)
@@ -237,7 +238,7 @@ def run_bitgen(input_path, regex, regex_from_file=False, is_xml = False):
         )
 
     # Simulate multiple input streams
-    multi_input = cfg.get_config("multi_input")
+    multi_input = cfg.GLOBAL_CONFIG["multi_input"]
     if multi_input >= 1:
         input_stream_tensor = input_stream_tensor.repeat(multi_input, 1)
         MyLogger.info(
@@ -245,7 +246,7 @@ def run_bitgen(input_path, regex, regex_from_file=False, is_xml = False):
         )
 
     # Split input stream
-    split_input_num = cfg.get_config("split_input")
+    split_input_num = cfg.GLOBAL_CONFIG["split_input"]
     if split_input_num:
         input_stream_tensor = split_input(input_stream_tensor, split_input_num)
         MyLogger.info(
@@ -267,12 +268,12 @@ def run_bitgen(input_path, regex, regex_from_file=False, is_xml = False):
         # List of regex from regex file
         regex_list = select_regex_from_file(
             regex,
-            regex_num=cfg.get_config("regex_num"),
+            regex_num=cfg.GLOBAL_CONFIG["regex_num"],
             random_select=False,
         )
         regex_group_list = group_regex_in_list(
             regex_list,
-            regex_group_number=cfg.get_config("regex_group_number"),
+            regex_group_number=cfg.GLOBAL_CONFIG["regex_group_number"],
             multi_input=multi_input,
         )
         run_bitgen_group_list(
@@ -533,60 +534,60 @@ def main():
     args = args_parser.parse_args()
 
     # Execution config
-    cfg.set_config("warmup_iters", args.warmup_iters)
-    cfg.set_config("exec_iters", args.exec_iters)
-    cfg.set_config("dry_run", args.dry_run)
+    cfg.GLOBAL_CONFIG["warmup_iters"] = args.warmup_iters
+    cfg.GLOBAL_CONFIG["exec_iters"] = args.exec_iters
+    cfg.GLOBAL_CONFIG["dry_run"] = args.dry_run
 
     # Regex config
-    cfg.set_config("regex_num", args.regex_num_from_file)
-    cfg.set_config("regex_group_number", args.regex_group_number)
-    cfg.set_config("regex_group_serial", args.regex_group_serial)
-    # cfg.set_config("balance_regex_groups", args.balance_regex_groups)
+    cfg.GLOBAL_CONFIG["regex_num"] = args.regex_num_from_file
+    cfg.GLOBAL_CONFIG["regex_group_number"] = args.regex_group_number
+    cfg.GLOBAL_CONFIG["regex_group_serial"] = args.regex_group_serial
+    # cfg.GLOBAL_CONFIG["balance_regex_groups", args.balance_regex_groups)
 
     # Input config
-    cfg.set_config("input_size", args.input_size)
-    cfg.set_config("repeat_input", args.repeat_input)
-    cfg.set_config("multi_input", args.multi_input)
-    cfg.set_config("split_input", args.split_input)
+    cfg.GLOBAL_CONFIG["input_size"] = args.input_size
+    cfg.GLOBAL_CONFIG["repeat_input"] = args.repeat_input
+    cfg.GLOBAL_CONFIG["multi_input"] = args.multi_input
+    cfg.GLOBAL_CONFIG["split_input"] = args.split_input
 
     #  Compilation config
-    cfg.set_config("pass_cc_advanced", args.pass_cc_advanced)
-    cfg.set_config("pass_cc_advanced_max", args.pass_cc_advanced_max)
-    cfg.set_config("pass_cc_advanced_merge_cc", args.pass_cc_advanced_merge_cc)
-    cfg.set_config("pass_short_circuit", args.pass_short_circuit)
-    cfg.set_config("pass_short_circuit_start", args.pass_short_circuit_start)
-    cfg.set_config("pass_short_circuit_interval", args.pass_short_circuit_interval)
-    cfg.set_config("pass_short_circuit_interval_disable", args.pass_short_circuit_interval_disable)
-    cfg.set_config("pass_short_circuit_syncpoint", args.pass_short_circuit_syncpoint)
-    # cfg.set_config("pass_loop_peeling", args.pass_loop_peeling)
-    cfg.set_config("pass_graph_break", args.pass_graph_break)
-    cfg.set_config("pass_print_graph", args.pass_print_graph)
-    cfg.set_config("pass_inst_stats", args.pass_inst_stats)
-    cfg.set_config("pass_inst_stats_dyn", args.pass_inst_stats_dyn)
-    cfg.set_config("parallel_compile_parabix", args.parallel_compile_parabix)
-    cfg.set_config("parallel_compile_cuda", args.parallel_compile_cuda)
-    cfg.set_config("parallel_compile_cuda_lto", args.parallel_compile_cuda_lto)
+    cfg.GLOBAL_CONFIG["pass_cc_advanced"] = args.pass_cc_advanced
+    cfg.GLOBAL_CONFIG["pass_cc_advanced_max"] = args.pass_cc_advanced_max
+    cfg.GLOBAL_CONFIG["pass_cc_advanced_merge_cc"] = args.pass_cc_advanced_merge_cc
+    cfg.GLOBAL_CONFIG["pass_short_circuit"] = args.pass_short_circuit
+    cfg.GLOBAL_CONFIG["pass_short_circuit_start"] = args.pass_short_circuit_start
+    cfg.GLOBAL_CONFIG["pass_short_circuit_interval"] = args.pass_short_circuit_interval
+    cfg.GLOBAL_CONFIG["pass_short_circuit_interval_disable"] = args.pass_short_circuit_interval_disable
+    cfg.GLOBAL_CONFIG["pass_short_circuit_syncpoint"] = args.pass_short_circuit_syncpoint
+    # cfg.GLOBAL_CONFIG["pass_loop_peeling", args.pass_loop_peeling)
+    cfg.GLOBAL_CONFIG["pass_graph_break"] = args.pass_graph_break
+    cfg.GLOBAL_CONFIG["pass_print_graph"] = args.pass_print_graph
+    cfg.GLOBAL_CONFIG["pass_inst_stats"] = args.pass_inst_stats
+    cfg.GLOBAL_CONFIG["pass_inst_stats_dyn"] = args.pass_inst_stats_dyn
+    cfg.GLOBAL_CONFIG["parallel_compile_parabix"] = args.parallel_compile_parabix
+    cfg.GLOBAL_CONFIG["parallel_compile_cuda"] = args.parallel_compile_cuda
+    cfg.GLOBAL_CONFIG["parallel_compile_cuda_lto"] = args.parallel_compile_cuda_lto
 
-    cfg.set_config("backend", args.backend)
+    cfg.GLOBAL_CONFIG["backend"] = args.backend
 
     # Backend config: CUDA
-    cfg.set_config("block_size", (args.cuda_block_size, 1, 1))
-    cfg.set_config("cuda_register_num", args.cuda_register_num)
+    cfg.GLOBAL_CONFIG["block_size"] = args.cuda_block_size, 1, 1
+    cfg.GLOBAL_CONFIG["cuda_register_num"] = args.cuda_register_num
 
     # Backend config: Torch
-    cfg.set_config("torch_compile", args.torch_compile)
-    cfg.set_config("debug_torch", 0)
+    cfg.GLOBAL_CONFIG["torch_compile"] = args.torch_compile
+    cfg.GLOBAL_CONFIG["debug_torch"] = 0
 
     # Debug config
-    # cfg.set_config("profile", True)
-    # cfg.set_config("print_bitstream", True)
-    # cfg.set_config("print_bit_start", 0)
-    # cfg.set_config("print_zeros", True)
-    cfg.set_config("validation", args.check)
-    cfg.set_config("use_cached_code", args.reuse_cache)
-    # cfg.set_config("cached_code_dir", ".cache_bitgen")
+    # cfg.GLOBAL_CONFIG["profile", True)
+    # cfg.GLOBAL_CONFIG["print_bitstream", True)
+    # cfg.GLOBAL_CONFIG["print_bit_start", 0)
+    # cfg.GLOBAL_CONFIG["print_zeros", True)
+    cfg.GLOBAL_CONFIG["validation"] = args.check
+    cfg.GLOBAL_CONFIG["use_cached_code"] = args.reuse_cache
+    # cfg.GLOBAL_CONFIG["cached_code_dir", ".cache_bitgen")
 
-    cfg.print_config()
+    print(cfg.GLOBAL_CONFIG)
 
     regex = args.regex if args.regex else args.regex_file
     input_file = args.input_file

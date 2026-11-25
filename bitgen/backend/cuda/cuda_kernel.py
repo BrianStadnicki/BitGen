@@ -12,6 +12,7 @@ from cuda.bindings.runtime import (
     cudaDeviceGetAttribute,
     cudaDeviceAttr
 )
+
 import os
 import numpy as np
 import torch
@@ -204,7 +205,7 @@ class CUDA_Kernel:
         else:
             compute_capability = f"sm_{compute_capability}"
             output_type = "cubin"
-        register_num = cfg.get_config("cuda_register_num")
+        register_num = cfg.GLOBAL_CONFIG["cuda_register_num"]
         cmd_template = f"nvcc -std=c++17 -O3 -use_fast_math --ptxas-options=-v -Xptxas -O3 -rdc=true -{output_type} -arch={compute_capability}"  # --ptxas-options=--register-usage-level=10
         if not use_lto:
             cmd_template += f" --maxrregcount={register_num}"
@@ -240,7 +241,7 @@ class CUDA_Kernel:
                 self.cuDevice,
             )
         )
-        use_lto = cfg.get_config("parallel_compile_cuda_lto")
+        use_lto = cfg.GLOBAL_CONFIG["parallel_compile_cuda_lto"]
         cmds, cubin_paths = self.gen_nvcc_cubin_cmds(
             self.code_path, compute_capability=f"{major}{minor}", use_lto=use_lto
         )
