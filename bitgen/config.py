@@ -49,5 +49,7 @@ GLOBAL_CONFIG = {
     "validation": 0,
     "use_cached_code": False,
     "cached_code_dir": ".cache_bitgen",
-    "__cached_module_path": "kernels/pablo"
+    "__cached_module_path": "kernels/pablo",
+    "__cached_path": "",
+    "cache_dir": ".cache_bitgen"
 }

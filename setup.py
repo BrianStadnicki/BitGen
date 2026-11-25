@@ -1,37 +1,11 @@
-import glob
-import os
 from pathlib import Path
 
 from setuptools import find_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
-from cuda.bindings import driver, nvrtc
+from cuda.core import Device
 
 root = Path(__file__).parent.resolve()
 
-
-def _cudaGetErrorEnum(error):
-    if isinstance(error, driver.CUresult):
-        err, name = driver.cuGetErrorName(error)
-        return name if err == driver.CUresult.CUDA_SUCCESS else "<unknown>"
-    elif isinstance(error, nvrtc.nvrtcResult):
-        return nvrtc.nvrtcGetErrorString(error)[1]
-    else:
-        raise RuntimeError("Unknown error type: {}".format(error))
-
-
-def checkCudaErrors(result):
-    if result[0].value:
-        raise RuntimeError(
-            "CUDA error code={}({})".format(
-                result[0].value, _cudaGetErrorEnum(result[0])
-            )
-        )
-    if len(result) == 1:
-        return None
-    elif len(result) == 2:
-        return result[1]
-    else:
-        return result[1:]
 
 
 def get_sources():
@@ -44,24 +18,11 @@ def get_sources():
 
 
 def get_cuda_arch_flags():
+    dev = Device()
     # Initialize CUDA Driver API
-    checkCudaErrors(driver.cuInit(0))
-    # Retrieve handle for device 0
-    cuDevice = checkCudaErrors(driver.cuDeviceGet(0))
-    # Derive target architecture for device 0
-    major = checkCudaErrors(
-        driver.cuDeviceGetAttribute(
-            driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
-            cuDevice,
-        )
-    )
-    minor = checkCudaErrors(
-        driver.cuDeviceGetAttribute(
-            driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
-            cuDevice,
-        )
-    )
-    arch_flag = f"-arch=sm_{major}{minor}"
+    dev.set_current()
+
+    arch_flag = f"-arch=sm_{dev.compute_capability.major}{dev.compute_capability.minor}"
     return [arch_flag]
 
 

@@ -1,11 +1,6 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
-    "python.analysis.extraPaths": [
-        "bitgen",
-        "/opt/conda/envs/bitgen-py313/lib/python3.13/site-packages/cuda/bindings/",
-        "/opt/conda/envs/bitgen-py313/lib/python3.13/site-packages/cuda-stubs/"
-    ],
     "python.analysis.stubPath": "bitgen/template/cuda/",
     "python.analysis.autoImportCompletions": true,
     "python.analysis.autoSearchPaths": true,

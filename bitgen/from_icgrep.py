@@ -314,7 +314,7 @@ def pablo_list2kernel(
 def init_cached_path():
     # Same cached path in one run
     # e.g. .cache_bitgen/bitgen_code_2021_0713_123456
-    if not cfg.GLOBAL_CONFIG["__cached_path"]:
+    if cfg.GLOBAL_CONFIG["__cached_path"] == "":
         if cfg.GLOBAL_CONFIG["use_cached_code"]:
             # select last one
             __cached_path = os.listdir(

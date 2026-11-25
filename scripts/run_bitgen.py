@@ -147,7 +147,7 @@ def run_bitgen_group_list(
         f"Regex group list info: regex_num={sum([len(group) for group in regex_group_list])}, list_size = {len(regex_group_list)}, group_size = {len(regex_group_list[0])}"
     )
     
-    if cfg.GLOBAL_CONFIG.data["regex_group_serial"]:
+    if cfg.GLOBAL_CONFIG["regex_group_serial"]:
         for regex_group_id, regex_group in enumerate(regex_group_list):
             global_timer.set_group("regex_group_" + str(regex_group_id))
             regex_group = [regex_group]
