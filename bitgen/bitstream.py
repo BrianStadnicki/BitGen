@@ -4,7 +4,7 @@ import torch
 import math
 
 from . import config as cfg
-from .cuda import byte_stream_transpose
+from cuda import byte_stream_transpose
 from .tool import global_timer
 
 
