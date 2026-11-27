@@ -1,6 +1,10 @@
 from enum import Enum
 import copy
 import math
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from bitgen.inst import BsAdvance, BsBlock
 
 from .. import config as cfg
 
@@ -32,15 +36,17 @@ class BsInstType(Enum):
 
 
 class BsInst:
-    def __init__(self, inst_type: BsInstType, operands, ret: int):
+    def __init__(self, inst_type: BsInstType, operands: tuple[int] | tuple[int, int] | tuple["BsBlock", "BsBlock | None"] | tuple[list["BsInst"]] | tuple["BsInst"] | tuple[None] | tuple[str, str] | tuple[int, str] | tuple[str] | tuple[int | str], ret: int | list[int]) -> None:
         self.type = inst_type
         self.operands = operands
         self.ret = ret
         self.ret_type = "uint32_t "
         self.operation = ""
         self.comment = ""
+        self.n_operand = 0
+        self.stream_index = ""
 
-    def get_var_name(self, var_map, operand):
+    def get_var_name(self, var_map: dict[int | str | list[int], str], operand: int | str | list[int]) -> str | int | list[int]:
         operandname = var_map[operand] if operand in var_map else operand
         if operandname == "output.matches":
             return "bs_result"
@@ -51,7 +57,7 @@ class BsInst:
             raise NotImplementedError("1 should be replaced by create_ones")
         return operandname
 
-    def get_var_name_cuda(self, var_map, operand):
+    def get_var_name_cuda(self, var_map: dict[int | str | list[int], str] | None, operand: int | str | list[int]) -> int | str | list[int]:
         if var_map is None:
             return operand
         operandname = var_map[operand] if operand in var_map else operand
@@ -69,7 +75,7 @@ class BsInst:
             return "0xFFFFFFFF"
         return operandname
 
-    def update_var_define_map(self, ret, var_define_map):
+    def update_var_define_map(self, ret: int | list[int], var_define_map: dict[int | str | list[int], int]) -> bool:
         if ret in var_define_map:
             var_define_map[ret] += 1
             self.ret_type = ""
@@ -79,9 +85,10 @@ class BsInst:
             self.ret_type = "uint32_t "
             return True
 
-    def lower_to_cuda(self, var_map, indent: str = "", var_define_map: dict = None):
+    def lower_to_cuda(self, var_map: dict[int | str | list[int], str] | None, indent: str = "", var_define_map: dict[int | str | list[int], int] | None = None) -> str:
         if var_define_map is not None:
             self.update_var_define_map(self.ret, var_define_map)
+        return ""
 
     def __str__(self):
         return self.__class__.__name__
@@ -92,18 +99,26 @@ class BsInst:
     def deepcopy(self):
         return copy.deepcopy(self)
 
+    def lower_to_bitstream(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
+        return ""
+
+    def lower_to_python(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
+        return ""
+
+    def lower_to_torch(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
+        return ""
 
 
-def get_max_advance_offset(insts):
+def get_max_advance_offset(insts: list[BsInst]) -> int:
         max_advance_offset = 0
         if cfg.GLOBAL_CONFIG["pass_cc_advanced"]:
             for inst in insts:
                 if inst.type == BsInstType.ADVANCE:
-                    max_advance_offset = max(max_advance_offset, inst.operand2)
+                    max_advance_offset = max(max_advance_offset, cast("BsAdvance", inst).operand2)
         else:
             for inst in insts:
                 if inst.type == BsInstType.ADVANCE:
-                    max_advance_offset += inst.operand2
+                    max_advance_offset += cast("BsAdvance", inst).operand2
         if max_advance_offset != 0:
             max_advance_offset = math.ceil(max_advance_offset / 32)
         return max_advance_offset

@@ -1,24 +1,24 @@
-import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
-import matplotlib
 
-from ..inst import BsInstType, BsAssign, BsAdvance
+from bitgen.inst.inst import BsInst
+
+from ..inst import BsInstType
 from ..passes.pass_utils import build_graph
 
 
 class print_computation_graph_pass:
-    def __init__(self, save_path="computation_graph.pdf"):
+    def __init__(self, save_path: str = "computation_graph.pdf"):
         self.pass_name = "print_computation_graph"
         self.save_path = save_path
 
-    def print_computation_graph(self, insts, var_name_map):
+    def print_computation_graph(self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str]):
         G = build_graph(insts, var_name_map)
 
         node_labels = {}
         nodes = list(G.nodes)
         for inst_id in nodes:
-            inst = G.nodes[inst_id]["inst"]
+            inst: BsInst = G.nodes[inst_id]["inst"]
             # Highlight the CC output
             if isinstance(inst.ret, list):
                 assert len(inst.ret) == 1
@@ -48,20 +48,20 @@ class print_computation_graph_pass:
 
         A = nx.nx_agraph.to_agraph(G)
         root_nodes = range(8)
-        A.add_subgraph(root_nodes, rank="same")
+        A.add_subgraph(root_nodes, rank="same") # pyright: ignore[reportUnknownMemberType]
         A.layout(prog="dot")
 
         # Adjust figure size based on the number of nodes
         num_nodes = len(nodes)
         fig_size = max(16, num_nodes)
-        plt.figure(figsize=(fig_size, fig_size))
+        plt.figure(figsize=(fig_size, fig_size)) # pyright: ignore[reportUnknownMemberType]
 
-        A.draw(
+        A.draw( # pyright: ignore[reportUnknownMemberType]
             self.save_path,
             format="pdf",
             prog="dot",
         )
 
-    def run(self, insts, var_name_map):
+    def run(self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str]) -> tuple[list[BsInst], dict[int | str | list[int], str]]:
         self.print_computation_graph(insts, var_name_map)
         return insts, var_name_map

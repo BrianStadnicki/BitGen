@@ -2,7 +2,7 @@ from .inst import BsInst, BsInstType
 
 
 class BsSel(BsInst):
-    def __init__(self, operands, condition, ret=0):
+    def __init__(self, operands: tuple[int, int], condition: int, ret: int = 0):
         super().__init__(BsInstType.SEL, operands, ret)
         self.n_operand = 2
         self.operand1 = operands[0]
@@ -10,19 +10,19 @@ class BsSel(BsInst):
         self.condition = condition
         self.ret = ret
 
-    # def lower_to_bitstream(self, var_map, indent: str = ""):
+    # def lower_to_bitstream(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
     #     ret = self.get_var_name(var_map, self.ret)
     #     operand1 = self.get_var_name(var_map, self.operand1)
     #     code = f"{indent}{ret} = {operand1}"
     #     return code
 
-    def lower_to_python(self, var_map, indent: str = ""):
+    def lower_to_python(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
         ret = self.get_var_name(var_map, self.ret)
         operand1 = self.get_var_name(var_map, self.operand1)
         code = f"{indent}{ret} = {operand1}"
         return code
 
-    def lower_to_torch(self, var_map, indent: str = ""):
+    def lower_to_torch(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
         ret = self.get_var_name(var_map, self.ret)
         condition = self.get_var_name(var_map, self.condition)
         operand1 = self.get_var_name(var_map, self.operand1)
@@ -39,7 +39,7 @@ class BsSel(BsInst):
     def get_torch_module(self):
         return "BSSel"
 
-    def lower_to_cuda(self, var_map, indent: str = "", var_define_map: dict = None):
+    def lower_to_cuda(self, var_map: dict[int | str | list[int], str] | None, indent: str = "", var_define_map: dict[int | str | list[int], int] | None = None) -> str:
         super().lower_to_cuda(var_map, indent, var_define_map)
         ret = self.get_var_name_cuda(var_map, self.ret)
         condition = self.get_var_name_cuda(var_map, self.condition)

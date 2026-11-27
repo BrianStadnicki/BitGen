@@ -1,13 +1,17 @@
+from typing import cast
+
 import networkx as nx
 
-from ..inst import BsInstType
+from bitgen.inst.inst_block_while import BsWhile
+
+from ..inst import BsInst, BsInstType
 
 
-def remove_empty_insts(insts):
+def remove_empty_insts(insts: list[BsInst | None]) -> list[BsInst]:
     return [inst for inst in insts if inst != None]
 
 
-def update_insts(insts, insert_insts: dict):
+def update_insts(insts: list[BsInst], insert_insts: dict[BsInst, int]) -> list[BsInst]:
     # Sort by inst_pos from last to first
     insert_insts = {
         k: v
@@ -49,11 +53,10 @@ inst_name_map = {
 }
 
 
-def build_graph(insts, var_name_map):
-    G = nx.DiGraph()
+def build_graph(insts: list[BsInst], var_name_map: dict[int | str | list[int], str]):# -> DiGraph:
+    G: nx.DiGraph[int] = nx.DiGraph()
 
-    define_pos = {}  # var_id -> inst_id
-    edge_labels = {}
+    define_pos: dict[int, int] = {}  # var_id -> inst_id
 
     for inst_id, inst in enumerate(insts):
         # print(inst.lower_to_torch(var_name_map))
@@ -68,7 +71,7 @@ def build_graph(insts, var_name_map):
         G.add_node(inst_id, inst=inst, label=f"{inst_id}\n{inst_name_map[inst.type]}")
 
         if inst.type == BsInstType.WHILE:
-            operand = inst.condition
+            operand = cast(BsWhile, inst).condition
             if operand in define_pos:
                 # print(f"add edge {define_pos[operand]} -> {inst_id}")
                 # if define_pos[operand] == inst_id:
@@ -84,7 +87,8 @@ def build_graph(insts, var_name_map):
                 if inst.type == BsInstType.ADVANCE and operand_id == 1:
                     continue
                 operand = inst.operands[operand_id]
-                if operand in define_pos:
+                assert isinstance(operand, int)
+                if operand in define_pos: 
                     # Self-loop
                     if define_pos[operand] == inst_id:
                         continue
@@ -102,10 +106,10 @@ def build_graph(insts, var_name_map):
     return G
 
 
-def break_insts(insts):
-    insts_break_group = []
-    insts_break = []
-    for inst_id, inst in enumerate(insts):
+def break_insts(insts: list[BsInst]) -> list[list[BsInst]]:
+    insts_break_group: list[list[BsInst]] = []
+    insts_break: list[BsInst] = []
+    for _, inst in enumerate(insts):
         if inst.type == BsInstType.GRAPHBREAK:
             if len(insts_break) > 0:
                 insts_break_group.append(insts_break)
@@ -117,7 +121,7 @@ def break_insts(insts):
     return insts_break_group
 
 
-def add_new_var(var_name_map, var_name):
+def add_new_var(var_name_map: dict[int | str | list[int], str], var_name: str) -> int | str | list[int]:
     # Found existing var_id
     if var_name in var_name_map.values():
         for var_id, name in var_name_map.items():
@@ -129,7 +133,7 @@ def add_new_var(var_name_map, var_name):
     return new_var_id
 
 
-def get_var_by_name(var_name, var_name_map):
+def get_var_by_name(var_name: str, var_name_map: dict[int | str | list[int], str]) -> int | str | list[int] | None:
     for var in var_name_map:
         if var_name_map[var] == var_name:
             return var

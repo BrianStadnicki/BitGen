@@ -572,6 +572,7 @@ def main():
 
     # Backend config: CUDA
     cfg.GLOBAL_CONFIG["block_size"] = args.cuda_block_size, 1, 1
+    cfg.GLOBAL_CONFIG["grid_size"] = args.cuda_register_num, args.multi_input, 1
     cfg.GLOBAL_CONFIG["cuda_register_num"] = args.cuda_register_num
 
     # Backend config: Torch

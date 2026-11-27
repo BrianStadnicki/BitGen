@@ -1,4 +1,62 @@
-GLOBAL_CONFIG = {
+from typing import TypedDict
+
+class Config(TypedDict):
+    warmup_iters: int
+    exec_iters: int
+    dry_run: bool
+
+    # Regex config
+    regex_num: int
+    regex_group_number: int
+    regex_group_serial: int 
+    balance_regex_groups: int
+
+    # Input config
+    input_size: int
+    repeat_input: int
+    multi_input: int
+    split_input: int
+
+    #  Compilation config
+    pass_cc_advanced: int
+    pass_cc_advanced_max: int
+    pass_cc_advanced_merge_cc: int
+    pass_short_circuit: int
+    pass_short_circuit_start: int
+    pass_short_circuit_interval: int
+    pass_short_circuit_interval_disable: int
+    pass_short_circuit_syncpoint: int
+    pass_graph_break: int
+    pass_print_graph: int
+    pass_inst_stats: int
+    pass_inst_stats_dyn: int
+    parallel_compile_parabix: int
+    parallel_compile_cuda: int
+    parallel_compile_cuda_lto: int
+    backend: str
+
+    # Backend config: CUDA
+    block_size: tuple[int, int, int]
+    cuda_register_num: int
+    grid_size: tuple[int, int, int]
+
+    # Backend config: Torch
+    torch_compile: int
+    debug_torch: int
+
+    # Debug config
+    profile: bool
+    print_bitstream: bool
+    print_bit_start: int
+    print_zeros: bool
+    validation: int
+    use_cached_code: bool
+    cached_code_dir: str
+    __cached_module_path: str
+    __cached_path: str
+    cache_dir: str
+
+GLOBAL_CONFIG: Config = {
     "warmup_iters": 0,
     "exec_iters": 0,
     "dry_run": False,
@@ -34,8 +92,9 @@ GLOBAL_CONFIG = {
     "backend": "cuda",
 
     # Backend config: CUDA
-    "block_size": 0,
+    "block_size": (0, 0, 0),
     "cuda_register_num": 0,
+    "grid_size": (0, 0, 0),
 
     # Backend config: Torch
     "torch_compile": 0,

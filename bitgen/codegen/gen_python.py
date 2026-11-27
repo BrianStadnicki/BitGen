@@ -1,19 +1,21 @@
 from itertools import chain
 
+from bitgen.inst import BsInst
+
 from .gen import Generator
 
 class PythonGenerator(Generator):
 
-    def lower_insts(self, insts, indent=""):
+    def lower_insts(self, insts: list[BsInst] | None, indent: str = ""):
         if insts is None or len(insts) == 0:
             return
-        code_lines = []
+        code_lines: list[str] = []
         for inst in insts:
-            code_lines.append(inst.lower_to_python(self.var_name_map, indent))
+            code_lines.append(inst.lower_to_python(self.var_name_map_list, indent))
         code_lines.append("")
         self.file_handler.write("\n".join(code_lines))
 
-    def lower(self):
+    def lower(self, input_path=""):
         with open("bitgen/template/template.py", 'r', encoding='utf-8') as f:
             template = f.read()
             self.file_handler.write(template)

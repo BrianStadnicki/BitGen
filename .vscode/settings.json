@@ -4,6 +4,7 @@
     "python.analysis.stubPath": "bitgen/template/cuda/",
     "python.analysis.autoImportCompletions": true,
     "python.analysis.autoSearchPaths": true,
-    "python.analysis.languageServerMode": "light",
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.languageServerMode": "full",
+    "python.analysis.typeCheckingMode": "strict",
+    "cmake.sourceDirectory": "/workspaces/BitGen/hscompile"
 }

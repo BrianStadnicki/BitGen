@@ -2,25 +2,25 @@ from .inst import BsInst, BsInstType
 
 
 class BsAssign(BsInst):
-    def __init__(self, operands=None, ret=0):
+    def __init__(self, operands: tuple[int | str], ret: int | list[int] = 0) -> None:
         super().__init__(BsInstType.ASSIGN, operands, ret)
         self.n_operand = 1
         self.operand1 = operands[0]
         self.ret = ret
 
-    def lower_to_bitstream(self, var_map, indent: str = ""):
+    def lower_to_bitstream(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
         ret = self.get_var_name(var_map, self.ret)
         operand1 = self.get_var_name(var_map, self.operand1)
         code = f"{indent}{ret} = {operand1}"
         return code
 
-    def lower_to_python(self, var_map, indent: str = ""):
+    def lower_to_python(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
         ret = self.get_var_name(var_map, self.ret)
         operand1 = self.get_var_name(var_map, self.operand1)
         code = f"{indent}{ret} = {operand1}"
         return code
     
-    def lower_to_torch(self, var_map, indent: str = ""):
+    def lower_to_torch(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
         ret = self.get_var_name(var_map, self.ret)
         operand1 = self.get_var_name(var_map, self.operand1)
         code = f"{indent}{ret} = {operand1}"
@@ -31,7 +31,7 @@ class BsAssign(BsInst):
     def get_torch_module(self):
         return "BSAssign"
 
-    def lower_to_cuda(self, var_map, indent: str = "", var_define_map: dict = None):
+    def lower_to_cuda(self, var_map: dict[int | str | list[int], str] | None, indent: str = "", var_define_map:  dict[int | str | list[int],int] | None = None) -> str:
         super().lower_to_cuda(var_map, indent, var_define_map)
         ret = self.get_var_name_cuda(var_map, self.ret)
         operand1 = self.get_var_name_cuda(var_map, self.operand1)
@@ -39,5 +39,3 @@ class BsAssign(BsInst):
         if self.comment != "":
             code += f" // {self.comment}"
         return code
-    
-    

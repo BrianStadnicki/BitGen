@@ -4,15 +4,15 @@ from itertools import chain
 
 class BsBlock(BsInst):
 
-    def __init__(self, operands=None, ret=0, name: str = ""):
+    def __init__(self, operands: tuple[list[BsInst]], ret: int | list[int] = 0, name: str = ""):
         super().__init__(BsInstType.BLOCK, operands, ret)
         self.n_operand = 1
         self.name = str(name)
         self.body = operands[0]
         self.ret = ret
 
-    def lower_to_bitstream(self, var_map, indent: str = ""):
-        codes = []
+    def lower_to_bitstream(self, var_map: dict[int | str | list[int], str], indent: str = ""):
+        codes: list[str] = []
         codes.append(f"{indent}{{")
         body_insts = list(chain(self.body))
         for inst in body_insts:
@@ -21,8 +21,8 @@ class BsBlock(BsInst):
         code = "\n".join(codes)
         return code
 
-    def lower_to_python(self, var_map, indent: str = ""):
-        codes = []
+    def lower_to_python(self, var_map: dict[int | str | list[int], str], indent: str = ""):
+        codes: list[str] = []
         body_insts = list(chain(self.body))
         indent += "    "
         # codes.append(f"{indent}# block {self.name} start")
@@ -32,8 +32,8 @@ class BsBlock(BsInst):
         code = "\n".join(codes)
         return code
     
-    def lower_to_torch(self, var_map, indent: str = ""):
-        codes = []
+    def lower_to_torch(self, var_map: dict[int | str | list[int], str], indent: str = ""):
+        codes: list[str] = []
         body_insts = list(chain(self.body))
         indent += "    "
         # codes.append(f"{indent}# block {self.name} start")
@@ -43,13 +43,14 @@ class BsBlock(BsInst):
         code = "\n".join(codes)
         return code
     
-    def get_torch_module(self):
+    def get_torch_module(self) -> str:
         return "BSBlock"
 
-    def lower_to_cuda(self, var_map, indent: str = "", var_define_map: dict = None):
+    def lower_to_cuda(self, var_map: dict[int | str | list[int], str] | None, indent: str = "", var_define_map: dict[int | str | list[int], int] | None = None) -> str:
+        assert var_define_map is not None
         var_define_map_bk = var_define_map.copy()
         # super().lower_to_cuda(var_map, indent, var_define_map)
-        codes = []
+        codes: list[str] = []
         body_insts = list(chain(self.body))
         for inst in body_insts:
             codes.append(inst.lower_to_cuda(var_map, indent, var_define_map))

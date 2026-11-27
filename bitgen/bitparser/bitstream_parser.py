@@ -1,5 +1,7 @@
 # Parse bitstream code generated from icgrep
 
+from typing import cast
+
 from ..inst import *
 from .. import config as cfg
 
@@ -28,23 +30,23 @@ class expr_type(Enum):
 class BitstreamParser:
 
     def __init__(self):
-        self.var_name_map = {}
-        self.name_var_map = {}
+        self.var_name_map: dict[int, str | BsInstType] = {}
+        self.name_var_map: dict[str | BsInstType, int] = {}
 
-    def add_var(self, var_name: str):
+    def add_var(self, var_name: str | BsInstType) -> int:
         if var_name not in self.name_var_map:
             var_id = len(self.name_var_map)
             self.name_var_map[var_name] = var_id
             self.var_name_map[var_id] = var_name
         return self.name_var_map[var_name]
 
-    def get_var(self, var_name):
+    def get_var(self, var_name: str | BsInstType) -> int:
         if var_name in self.name_var_map:
             return self.name_var_map[var_name]
         else:
-            raise ValueError("Invalid variable name: " + var_name)
+            raise ValueError("Invalid variable name: " + cast(str, var_name))
 
-    def parse_expr(self, expr: str):
+    def parse_expr(self, expr: str) -> tuple[expr_type, tuple[BsInstType, *tuple[str, ...]]] | tuple[expr_type, list[str]]:
         # Remove parenthesis
         expr = expr.strip()
         if expr[0] == "(" and expr[-1] == ")":
@@ -56,15 +58,13 @@ class BitstreamParser:
         match = re.match(pattern, expr)
         if match:
             function_name = match.group(1)
-            arguments = match.group(2)
-            arguments = arguments.split(",")
-            arguments = [arg.strip() for arg in arguments]
+            arguments: list[str] = [arg.strip() for arg in cast(str, match.group(2)).split(",")]
 
             if function_name in operation_name_map:
-                return expr_type.FUNCTION, [
+                return expr_type.FUNCTION, (
                     operation_name_map[function_name],
                     *arguments,
-                ]
+                )
             elif function_name == "Next":
                 return expr_type.VARIABLE, arguments
             else:
@@ -73,28 +73,28 @@ class BitstreamParser:
         tokens = expr.split()
         if len(tokens) == 5:
             if tokens[1] == "?":
-                return expr_type.SELECT, [BsInstType.SEL, tokens[0], tokens[2], tokens[4]]
+                return expr_type.SELECT, (BsInstType.SEL, tokens[0], tokens[2], tokens[4])
             else :
                 raise ValueError("Invalid expression")
         elif len(tokens) == 3:
             # binary operation
             if tokens[1] in operation_name_map:
-                return expr_type.BINARY, [
+                return expr_type.BINARY, (
                     operation_name_map[tokens[1]],
                     tokens[0],
                     tokens[2],
-                ]
+                )
             else:
                 raise ValueError("Invalid binary operation")
         elif len(tokens) == 2:
             # unary operation
             if tokens[0] in operation_name_map:
-                return expr_type.UNARY, [operation_name_map[tokens[0]], tokens[1]]
+                return expr_type.UNARY, (operation_name_map[tokens[0]], tokens[1])
             else:
                 raise ValueError("Invalid unary operation")
         elif len(tokens) == 1:
             if tokens[0][0] == '~':
-                return expr_type.UNARY, [BsInstType.NOT, tokens[0][1:]]
+                return expr_type.UNARY, (BsInstType.NOT, tokens[0][1:])
             return expr_type.VARIABLE, [tokens[0]]
         else:
             raise ValueError("Invalid expression: " + str(tokens))
@@ -103,14 +103,15 @@ class BitstreamParser:
         indent = len(line) - len(line.lstrip(" "))
         return indent
 
-    def get_block_end(self, codes: list, block_start: int, indent_out: int):
+    def get_block_end(self, codes: list[str], block_start: int, indent_out: int):
         for i in range(block_start, len(codes)):
             line_next = codes[i]
             indent_next = self.get_indent(line_next)
             if indent_next == indent_out:
                 return i
+        return -1
 
-    def parse_branch_while(self, codes: list, line_id: int):
+    def parse_branch_while(self, codes: list[str], line_id: int):
         line = codes[line_id].strip()
         assert line.startswith("while")
         condition = line.split("while")[1].strip().split(":")[0].strip()
@@ -119,12 +120,11 @@ class BitstreamParser:
         body_1_start = line_id + 1
         body_1_end = self.get_block_end(codes, body_1_start, indent_out)
         body_1_insts = self.parse_lines(codes[body_1_start:body_1_end])
-        body_1_inst = BsBlock([body_1_insts], body_1_insts[-1].ret)
-        while_rets = list(set([body_1_inst.ret]))
-        inst = BsWhile([body_1_inst], condition_id, while_rets)
+        body_1_inst = BsBlock((body_1_insts,), body_1_insts[-1].ret)
+        inst = BsWhile((body_1_inst,), condition_id)
         return body_1_end, inst
 
-    def parse_branch_if(self, codes: list, line_id: int):
+    def parse_branch_if(self, codes: list[str], line_id: int):
         line = codes[line_id].strip()
         assert line.startswith("if")
         condition = line.split("if")[1].strip().split(":")[0].strip()
@@ -133,7 +133,7 @@ class BitstreamParser:
         body_1_start = line_id + 1
         body_1_end = self.get_block_end(codes, body_1_start, indent_out)
         body_1_insts = self.parse_lines(codes[body_1_start:body_1_end])
-        body_1_inst = BsBlock([body_1_insts], body_1_insts[-1].ret)
+        body_1_inst = BsBlock((body_1_insts,), body_1_insts[-1].ret)
         body_2_inst = None
         body_2_end = body_1_end
         if codes[body_1_end].strip().startswith("else"):
@@ -141,12 +141,15 @@ class BitstreamParser:
             body_2_start = body_1_end + 1
             body_2_end = self.get_block_end(codes, body_2_start, indent_out)
             body_2_insts = self.parse_lines(codes[body_2_start:body_2_end])
-            body_2_inst = BsBlock([body_2_insts], body_1_insts[-1].ret)
-        if_rets = list(set([body_1_inst.ret, body_2_inst.ret]))  # unique ret list
-        inst = BsIf([body_1_inst, body_2_inst], condition_id, if_rets)
+            body_2_inst = BsBlock((body_2_insts,), body_1_insts[-1].ret)
+        if body_2_inst:
+            if_rets = list(set([body_1_inst.ret, body_2_inst.ret]))  # unique ret list
+        else:
+            if_rets = list(set([body_1_inst.ret]))  # unique ret list
+        inst = BsIf((body_1_inst, body_2_inst), condition_id, if_rets)
         return body_2_end, inst
 
-    def parse_line(self, codes: list, line_id: int):
+    def parse_line(self, codes: list[str], line_id: int) -> tuple[int, list[BsInst] | BsInst | None]:
         # print(f"Parse line {line_id}:", codes[line_id])
 
         line = codes[line_id].strip()
@@ -170,48 +173,61 @@ class BitstreamParser:
         type_right, arguments_right = self.parse_expr(expr_right)
         assert type_left == expr_type.VARIABLE
         # print("arguments_left:", arguments_left)
+        assert isinstance(arguments_left[0], str) or isinstance(arguments_left[0], BsInstType)
+        assert isinstance(arguments_right[0], str) or isinstance(arguments_right[0], BsInstType)
 
         var_left = self.add_var(arguments_left[0])
 
         if type_right == expr_type.VARIABLE:
             var_right = self.get_var(arguments_right[0])
-            inst = BsAssign([var_right], var_left)
+            inst = BsAssign((var_right,), var_left)
         elif type_right == expr_type.UNARY:
             if arguments_right[0] == BsInstType.NOT:
+                assert isinstance(arguments_right[1], str) or isinstance(arguments_right[1], BsInst)
                 var_right = self.get_var(arguments_right[1])
-                inst = BsNot([var_right], var_left)
+                inst = BsNot((var_right,), var_left)
             else:
                 raise ValueError("Invalid unary operation")
         elif type_right == expr_type.BINARY:
+            assert isinstance(arguments_right[1], str) or isinstance(arguments_right[1], BsInst)
+            assert isinstance(arguments_right[2], str) or isinstance(arguments_right[2], BsInst)
+
             var_right_1 = self.get_var(arguments_right[1])
             var_right_2 = self.get_var(arguments_right[2])
             if arguments_right[0] == BsInstType.AND:
-                inst = BsAnd([var_right_1, var_right_2], var_left)
+                inst = BsAnd((var_right_1, var_right_2), var_left)
             elif arguments_right[0] == BsInstType.OR:
-                inst = BsOr([var_right_1, var_right_2], var_left)
+                inst = BsOr((var_right_1, var_right_2), var_left)
             elif arguments_right[0] == BsInstType.XOR:
-                inst = BsXor([var_right_1, var_right_2], var_left)
+                inst = BsXor((var_right_1, var_right_2), var_left)
             else:
                 raise ValueError("Invalid binary operation")
         elif type_right == expr_type.FUNCTION:
-
+            assert isinstance(arguments_right[1], str) or isinstance(arguments_right[1], BsInst)
             if arguments_right[0] == BsInstType.ADVANCE:
                 var_right_1 = self.get_var(arguments_right[1])
                 var_right_2 = arguments_right[2]
-                inst = BsAdvance([var_right_1, var_right_2], var_left)
+                assert isinstance(var_right_2, str)
+                inst = BsAdvance((var_right_1, int(var_right_2)), var_left)
             elif arguments_right[0] == BsInstType.MATCHSTAR:
+                assert isinstance(arguments_right[2], str) or isinstance(arguments_right[2], BsInst)
                 var_right_1 = self.get_var(arguments_right[1])
                 var_right_2 = self.get_var(arguments_right[2])
-                inst = BsMatchStar([var_right_1, var_right_2], var_left)
+                inst = BsMatchStar((var_right_1, var_right_2), var_left)
                 raise NotImplementedError("MatchStar is not implemented")
             elif arguments_right[0] == BsInstType.SCANTHRU:
+                assert isinstance(arguments_right[2], str) or isinstance(arguments_right[2], BsInst)
                 var_right_1 = self.get_var(arguments_right[1])
                 var_right_2 = self.get_var(arguments_right[2])
-                inst = BsScanThru([var_right_1, var_right_2], var_left)
+                inst = BsScanThru((var_right_1, var_right_2), var_left)
                 raise NotImplementedError("ScanThru is not implemented")
             else:
                 raise ValueError("Invalid function call")
         elif type_right == expr_type.SELECT:
+            assert isinstance(arguments_right[1], str)
+            assert isinstance(arguments_right[2], str)
+            assert isinstance(arguments_right[3], str)
+
             condition = self.get_var(arguments_right[1])
             var_right_2 = self.get_var(arguments_right[2])
             var_right_3 = self.get_var(arguments_right[3])
@@ -220,19 +236,19 @@ class BitstreamParser:
                 not_condition = self.add_var("sel_not_" + arguments_right[1])
                 mask_var_right_2 = self.add_var("sel_mask_" + arguments_right[2])
                 mask_var_right_3 = self.add_var("sel_mask_" + arguments_right[3])
-                inst_not = BsNot([condition], not_condition)
-                inst_mask_2 = BsAnd([condition, var_right_2], mask_var_right_2)
-                inst_mask_3 = BsAnd([not_condition, var_right_3], mask_var_right_3)
-                inst_mask_other = BsOr([mask_var_right_2, mask_var_right_3], var_left)
+                inst_not = BsNot((condition,), not_condition)
+                inst_mask_2 = BsAnd((condition, var_right_2), mask_var_right_2)
+                inst_mask_3 = BsAnd((not_condition, var_right_3), mask_var_right_3)
+                inst_mask_other = BsOr((mask_var_right_2, mask_var_right_3), var_left)
                 return line_id + 1, [inst_not, inst_mask_2, inst_mask_3, inst_mask_other]
             else:
-                inst = BsSel([var_right_2, var_right_3], condition, var_left)
+                inst = BsSel((var_right_2, var_right_3), condition, var_left)
         else:
             raise ValueError("Invalid expression")
         return line_id + 1, inst
 
-    def parse_lines(self, codes: list) -> list:
-        insts = []
+    def parse_lines(self, codes: list[str]) -> list[BsInst]:
+        insts: list[BsInst] = []
         line_id = 0
         while line_id < len(codes):
             next_line_id, inst = self.parse_line(codes, line_id)
@@ -240,25 +256,23 @@ class BitstreamParser:
             if inst is not None:
                 if isinstance(inst, list):
                     insts.extend(inst)
-                elif isinstance(inst, BsInst):
-                    insts.append(inst)
                 else:
-                    raise ValueError("Invalid instruction")
+                    insts.append(inst)
         return insts
 
-    def parse_file(self, file_path) -> list:
-        insts = []
+    def parse_file(self, file_path: str) -> list[BsInst]:
+        insts: list[BsInst] = []
         if cfg.GLOBAL_CONFIG["backend"] == "cuda":
             basis_stream_var = self.add_var("basic_stream")
             for i in range(8):
                 basis_var = self.add_var(f"basis{i}")
-                inst = BsStreamLoad([basis_stream_var], basis_var)
+                inst = BsStreamLoad((basis_stream_var,), basis_var)
                 inst.stream_index = f"idx + {i} * n_unit_basic"
                 insts.append(inst)
-        elif cfg.GLOBAL_CONFIG[backend] == "torch":
+        elif cfg.GLOBAL_CONFIG["backend"] == "torch":
             for i in range(8):
                 basis_var = self.add_var(f"basis{i}")
-                inst = BsAssign([f"basic_stream[{i}]"], basis_var)
+                inst = BsAssign((f"basic_stream[{i}]",), basis_var)
                 insts.append(inst)
 
         self.add_var("0")
@@ -269,7 +283,8 @@ class BitstreamParser:
 
         if cfg.GLOBAL_CONFIG["backend"] == "cuda":
             var_result_stream = self.add_var(f"bs_result_stream")
-            inst_stream_store = BsStreamStore([insts[-1].ret], var_result_stream)
+            assert isinstance(insts[-1].ret, int) 
+            inst_stream_store = BsStreamStore((insts[-1].ret,), var_result_stream)
             inst_stream_store.use_or = True
             # inst_stream_store.use_atomic_or = True
             inst_stream_store.stream_index = "idx"

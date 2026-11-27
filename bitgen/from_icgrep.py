@@ -254,7 +254,7 @@ def pablo_list2kernel(
 ):
     # pablo to IR
     insts_list = []
-    var_name_map_list = []
+    var_name_map_list: list[dict[int,str]] = []
     parallel_pablo2kernel = False
     if not cfg.GLOBAL_CONFIG["use_cached_code"]:
         assert isinstance(pablo_paths, list)

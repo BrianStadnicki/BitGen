@@ -13,6 +13,7 @@ class Timer:
         self.exe = None
         self.app = None
         self.params = None
+        self.inst_result: dict[str,int] = {}
 
     class TimerContextManager:
         def __init__(self, store, name="unnamed"):

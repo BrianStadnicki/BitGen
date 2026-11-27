@@ -1,9 +1,9 @@
 from itertools import chain
+from typing import Any, Literal
 
 from .nfa import NFA, State
 from .bitstream import Bitstream
 from .inst import *
-from .compiler_helper import *
 from .codegen import Generator, PythonGenerator, CudaGenerator
 
 
@@ -31,33 +31,33 @@ class BitstreamCompiler:
         self.insts = []
         self.paths_state = []
         self.paths_inst = []
-        self.var_name_map = {}  # var_id -> var_name
-        self.name_var_map = {}  # var_name -> var_id
-        self.var_prefix_count = {}
+        self.var_name_map: dict[int,str] = {}  # var_id -> var_name
+        self.name_var_map: dict[str,int] = {}  # var_name -> var_id
+        self.var_prefix_count: dict[str,int] = {}
 
-        self.cc_stream = {}  # state_id -> cc_var_id
-        self.cc_insts = []
+        self.cc_stream: dict[int,int] = {}  # state_id -> cc_var_id
+        self.cc_insts: list[BsInst] = []
 
-    def get_var_name_by_id(self, var_id: int):
+    def get_var_name_by_id(self, var_id: int) -> str:
         return self.var_name_map[var_id]
 
-    def get_var_id_by_name(self, var_name: str):
+    def get_var_id_by_name(self, var_name: str) -> int:
         return self.name_var_map[var_name]
 
-    def add_var(self, var_name: str):
+    def add_var(self, var_name: str) -> int:
         if var_name not in self.name_var_map:
             self.name_var_map[var_name] = len(self.name_var_map)
             self.var_name_map[self.name_var_map[var_name]] = var_name
         return self.name_var_map[var_name]
 
-    def create_var(self, var_name_prefeix: str):
+    def create_var(self, var_name_prefeix: str) -> int:
         if var_name_prefeix not in self.var_prefix_count:
             self.var_prefix_count[var_name_prefeix] = 0
         var_name = f"{var_name_prefeix}_{self.var_prefix_count[var_name_prefeix]}"
         self.var_prefix_count[var_name_prefeix] += 1
         return self.add_var(var_name)
 
-    def check_duplicate_list(self, state_id_paths):
+    def check_duplicate_list(self, state_id_paths) -> None:
         seen = set()
         for state_id_path in state_id_paths:
             t = tuple(state_id_path)
@@ -66,7 +66,7 @@ class BitstreamCompiler:
             else:
                 seen.add(t)
 
-    def lower(self, type: str, file_path: str):
+    def lower(self, type: str, file_path: str) -> None:
         # self.check_duplicate_list(self.paths_state)
         with open(file_path, "w") as f:
             if type == "bitstream":
@@ -87,7 +87,7 @@ class BitstreamCompiler:
             )
             gen.lower()
 
-    def find_state_in_path(self, state_id, path, level=0):
+    def find_state_in_path(self, state_id, path: list[int] | int, level=0) -> tuple[Literal[True], int] | tuple[Literal[False], int]:
         level_next = level
         if isinstance(path, list):
             for item in path:
@@ -103,8 +103,9 @@ class BitstreamCompiler:
                 return True, level_next
             else:
                 return False, level_next
+        return False, level_next
 
-    def tranform_loop(self, insts, state_path_to_state, neighbor_id):
+    def tranform_loop(self, insts: list[BsInst], state_path_to_state: list[int] | int, neighbor_id: int):
         print(insts)
         has_loop, level = self.find_state_in_path(neighbor_id, state_path_to_state)
         if has_loop:
@@ -117,13 +118,13 @@ class BitstreamCompiler:
     def compile_state(
         self,
         state: State,
-        marker_stream: Bitstream,
-        state_path_to_state: list,  # Excluded state,
-        insts_before, 
-    ):
+        marker_stream: int,
+        state_path_to_state: list[int],  # Excluded state,
+        insts_before: list[BsInst], 
+    ) -> tuple[list[BsInst], list[int], int] | tuple[Any | list[BsInst], Any | list[Any], Any | int]:
         print("~~~~~ state", state.id)
         print("~~~~~ state_path_to_state_excluded", state_path_to_state)
-        insts = []
+        insts: list[BsInst] = []
 
         state_insts = []
         # Check cc strream already exists
@@ -156,7 +157,7 @@ class BitstreamCompiler:
             inst_or.ret_type = ""
             state_insts.append(inst_or)
 
-        inst_state = BsState([state_insts], inst_advance.ret, state.id)
+        inst_state = BsState([state_insts], inst_advance.ret, str(state.id))
         insts.append(inst_state)
 
         if state.neighbors is None or len(state.neighbors) == 0:
@@ -202,8 +203,8 @@ class BitstreamCompiler:
             block_res_var = block_body_result_marker_streams[0]
             state_path_from_state = [state.id] + block_body_state_paths[0]
         else:
-            block_result_vars = []
-            block_insts = []
+            block_result_vars: list[int] = []
+            block_insts: list[BsInst] = []
             for idx, block_body_inst in enumerate(block_body_insts):
                 print(f"body_{idx}: {block_body_inst}")
                 block_inst = BsBlock(

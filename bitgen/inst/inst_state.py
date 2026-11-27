@@ -1,11 +1,10 @@
-from .inst import BsInst, BsInstType
 from .inst_block import BsBlock
 from itertools import chain
 
 
 class BsState(BsBlock):
 
-    # def lower_to_bitstream(self, var_map, indent: str = ""):
+    # def lower_to_bitstream(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
     #     ret = self.get_var_name(var_map, self.ret)
     #     operand1 = self.get_var_name(var_map, self.operand1)
     #     operand2 = self.operand2
@@ -13,8 +12,8 @@ class BsState(BsBlock):
     #     code = f'{indent}{ret} = {operation}({operand1}, "{operand2}")'
     #     return code
 
-    def lower_to_python(self, var_map, indent: str = ""):
-        codes = []
+    def lower_to_python(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
+        codes: list[str] = []
         body_insts = list(chain(self.body))
         codes.append(f"{indent}# State {self.name}")
         for inst in body_insts:
@@ -23,8 +22,8 @@ class BsState(BsBlock):
         code = "\n".join(codes)
         return code
     
-    def lower_to_torch(self, var_map, indent: str = ""):
-        codes = []
+    def lower_to_torch(self, var_map: dict[int | str | list[int], str], indent: str = "") -> str:
+        codes: list[str] = []
         body_insts = list(chain(self.body))
         codes.append(f"{indent}# State {self.name}")
         for inst in body_insts:
@@ -33,12 +32,12 @@ class BsState(BsBlock):
         code = "\n".join(codes)
         return code
     
-    def get_torch_module(self):
+    def get_torch_module(self) -> str:
         return "BSState"
 
-    def lower_to_cuda(self, var_map, indent: str = "", var_define_map: dict = None):
+    def lower_to_cuda(self, var_map: dict[int | str | list[int], str] | None, indent: str = "", var_define_map: dict[int | str | list[int], int] | None = None) -> str:
         super().lower_to_cuda(var_map, indent, var_define_map)
-        codes = []
+        codes: list[str] = []
         body_insts = list(chain(self.body))
         codes.append(f"{indent}// State {self.name}")
         for inst in body_insts:

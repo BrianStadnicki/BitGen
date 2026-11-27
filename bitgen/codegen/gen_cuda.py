@@ -1,23 +1,21 @@
+from io import TextIOWrapper
 import os
 import math
-from itertools import chain
-import shutil
+from typing import cast
 
 from .gen import Generator
 from ..inst import *
-from ..inst.inst import get_max_advance_offset
 from .. import config as cfg
-from ..log import MyLogger
 from ..passes.pass_utils import break_insts
 from ..tool import global_timer
 
 
 class CudaGenerator(Generator):
 
-    def __init__(self, insts_list, var_name_map_list, regex_list=None):
+    def __init__(self, insts_list: list[list[BsInst]], var_name_map_list: list[dict[int | str | list[int],str]], regex_list: list[str] | None =None):
         super().__init__(insts_list, var_name_map_list, regex_list)
         self.kernel_wrapper_file_handler = None
-        self.kernel_file_handler = None
+        self.kernel_file_handler: TextIOWrapper | None = None
         self.tmp_streams_num = 0
         self.parallel_compile = cfg.GLOBAL_CONFIG["parallel_compile_cuda"]
 
@@ -32,13 +30,13 @@ class CudaGenerator(Generator):
     def __del__(self):
         self.close()
 
-    def get_var_by_name(self, var_name, var_name_map):
+    def get_var_by_name(self, var_name: str, var_name_map: dict[int | str | list[int], str]) -> int | str | list[int] | None:
         for var in var_name_map:
             if var_name_map[var] == var_name:
                 return var
         return None
 
-    def get_max_advance_num(self, insts):
+    def get_max_advance_num(self, insts: list[BsInst]) -> int:
         max_advance_offset = 0
         # if cfg.GLOBAL_CONFIG["pass_cc_advanced"]:
         #     for inst in insts:
@@ -70,29 +68,31 @@ class CudaGenerator(Generator):
                 else "template.py"
             ),
         )
-        with open(template_path, "r", encoding="utf-8") as f:
-            template = f.read()
-            self.kernel_wrapper_file_handler.write(template + "\n\n")
-        if self.tmp_streams_num == 0:
-            self.tmp_streams_num = 1
-        self.kernel_wrapper_file_handler.write(
-            f"tmp_streams_num = {self.tmp_streams_num}\n"
-        )
+        if self.kernel_wrapper_file_handler:
+            with open(template_path, "r", encoding="utf-8") as f:
+                template = f.read()
+                self.kernel_wrapper_file_handler.write(template + "\n\n")
+            if self.tmp_streams_num == 0:
+                self.tmp_streams_num = 1
+            self.kernel_wrapper_file_handler.write(
+                f"tmp_streams_num = {self.tmp_streams_num}\n"
+            )
         if cfg.GLOBAL_CONFIG["pass_inst_stats"]:
             global_timer.inst_result["tmem"] = (
                 global_timer.inst_result.get("tmem", 0) + self.tmp_streams_num
             )
 
-        self.kernel_wrapper_file_handler.write(
-            f"grid_size = {cfg.GLOBAL_CONFIG['grid_size']}  # regex_num, input_num, 1\n"
-        )
-        self.kernel_wrapper_file_handler.write(
-            f"block_size = {cfg.GLOBAL_CONFIG['block_size']}\n"
-        )
+        if self.kernel_wrapper_file_handler:
+            self.kernel_wrapper_file_handler.write(
+                f"grid_size = {cfg.GLOBAL_CONFIG['grid_size']}  # regex_num, input_num, 1\n"
+            )
+            self.kernel_wrapper_file_handler.write(
+                f"block_size = {cfg.GLOBAL_CONFIG['block_size']}\n"
+            )
 
-    def low_insts(self, insts, var_name_map, var_define_map, indent, file_handler):
-        code_lines = []
-        for inst_id, inst in enumerate(insts):
+    def low_insts(self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str], var_define_map: dict[int | str | list[int], int] | None, indent: str, file_handler: TextIOWrapper):
+        code_lines: list[str] = []
+        for _, inst in enumerate(insts):
             inst_string = inst.lower_to_cuda(var_name_map, indent, var_define_map)
             # First 8 instructions are for bistream assignment
             # if inst_id < 8:
@@ -104,17 +104,17 @@ class CudaGenerator(Generator):
             #         + " * n_unit_basic + i];"
             #         + inst_string[comment_pos:]
             #     )
-            if inst_string is not None:
+            if inst_string != "":
                 code_lines.append(inst_string)
         self.add_lines(file_handler, code_lines)
 
     def lower_subgraph_scanthru(
-        self, insts, var_name_map, var_define_map, output_var, indent, file_handler
-    ):
-        inst_scanthru = None
-        for insts_id, inst in enumerate(insts):
+        self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str], var_define_map: dict[int | str | list[int], int] | None, output_var: None, indent: str, file_handler: TextIOWrapper
+    ) -> None:
+        inst_scanthru: BsScanThru | None = None
+        for _, inst in enumerate(insts):
             if inst.type == BsInstType.SCANTHRU:
-                inst_scanthru = inst
+                inst_scanthru = cast(BsScanThru, inst)
                 break
         assert inst_scanthru is not None
         op1_name = var_name_map[inst_scanthru.operand1]
@@ -124,15 +124,15 @@ class CudaGenerator(Generator):
         op2_stream_id = self.get_var_by_name(op2_name + "_stream", var_name_map)
         ret_stream_id = self.get_var_by_name(ret_name + "_stream", var_name_map)
         inst_scanthru_stream = BsScanThruStream(
-            [op1_stream_id, op2_stream_id], ret_stream_id
+            (cast(int, op1_stream_id), cast(int, op2_stream_id)), cast(int, ret_stream_id)
         )
         self.low_insts(
             [inst_scanthru_stream], var_name_map, var_define_map, indent, file_handler
         )
 
     def lower_subgraph(
-        self, insts, var_name_map, var_define_map, output_var, indent, file_handler
-    ):
+        self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str], var_define_map: dict[int | str | list[int], int] | None, output_var: None, indent: str, file_handler: TextIOWrapper
+    ) -> None:
         graph_break_type = cfg.GLOBAL_CONFIG["pass_graph_break"]
         indent2 = indent + "    "
         max_advance_num = self.get_max_advance_num(insts)
@@ -208,7 +208,7 @@ class CudaGenerator(Generator):
         self.add_lines(file_handler, f"{indent}__syncthreads();")
 
     # tmp_stream_map : offset, [var_stream_id]
-    def reuse_tmp_stream(self, insts, inst_id, var_name_map, tmp_stream_map):
+    def reuse_tmp_stream(self, insts: list[BsInst], inst_id: int, var_name_map: dict[int | str | list[int], str], tmp_stream_map: dict[int | str, list[int]]):
         if inst_id == 0:
             return None
         check_reuse_stream = insts[inst_id].ret
@@ -241,7 +241,7 @@ class CudaGenerator(Generator):
         # Get the first definition of check_reuse_stream
         for iii, inst_iii in enumerate(insts):
             if inst_iii.type == BsInstType.IF:
-                for sub_inst in inst_iii.body_1.body:
+                for sub_inst in cast(BsIf, inst_iii).body_1.body:
                     if (
                         sub_inst.type == BsInstType.STREAMSTORE
                         and sub_inst.ret == check_reuse_stream
@@ -273,20 +273,20 @@ class CudaGenerator(Generator):
         return None
 
     # Return the number of stream define insts
-    def lower_graph(self, insts, var_name_map, var_define_map, indent, file_handler):
+    def lower_graph(self, insts: list[BsInst] | None, var_name_map: dict[int | str | list[int], str], var_define_map: dict[int | str | list[int], int], indent: str, file_handler: TextIOWrapper):
         if insts is None or len(insts) == 0:
             return
 
         # Lower stream define insts before sub-graph
-        stream_define_insts = []
+        stream_define_insts: list[BsInst] = []
         # code_define_carry_stream = f"{indent}uint32_t* carry_stream = tmp_streams + n_unit_basic * {self.tmp_streams_num};"
         # self.tmp_streams_num += 1
         # code_define_add_stream = f"{indent}uint32_t* add_stream = tmp_streams + n_unit_basic * {self.tmp_streams_num};"
         # self.tmp_streams_num += 1
         # self.add_lines(file_handler, code_define_carry_stream)
         # self.add_lines(file_handler, code_define_add_stream)
-        tmp_stream_map = {} # tmp_stream_offset, [var_stream_id]
-        for inst_id, inst in enumerate(insts):    
+        tmp_stream_map: dict[int | list[int], list[int | list[int]]] = {} # tmp_stream_offset, [var_stream_id]
+        for _, inst in enumerate(insts):    
             if inst.type == BsInstType.STREAMDEFINE:
                 tmp_offset = None
                 # tmp_offset = self.reuse_tmp_stream(insts, inst_id, var_name_map, tmp_stream_map)
@@ -303,11 +303,11 @@ class CudaGenerator(Generator):
                     tmp_stream_map[tmp_offset] = [inst.ret]
                 stream_define_insts.append(inst)
             elif inst.type == BsInstType.WHILE:
-                for sub_inst_id, sub_inst in enumerate(inst.body.body):
+                for sub_inst_id, sub_inst in enumerate(cast(BsWhile, inst).body.body):
                     if sub_inst.type == BsInstType.STREAMDEFINE:
-                        insts[inst_id].body.body[
+                        cast(BsStreamDefine, cast(BsWhile, inst).body.body[
                             sub_inst_id
-                        ].stream_index = f"n_unit_basic * {self.tmp_streams_num}"
+                        ]).stream_index = f"n_unit_basic * {self.tmp_streams_num}"
                         self.tmp_streams_num += 1
         self.low_insts(
             stream_define_insts, var_name_map, var_define_map, indent, file_handler
@@ -350,16 +350,17 @@ class CudaGenerator(Generator):
                     template = f.read()
                     kernel_regex_file_handler.write(template + "\n\n")
             else:
+                assert self.kernel_file_handler != None
                 kernel_regex_file_handler = self.kernel_file_handler
 
             insts = self.insts_list[insts_id]
             regex_str = (
                 "["
-                + ", ".join(f'"{regex}"' for regex in self.regex_list[insts_id])
+                + ", ".join(f'"{regex}"' for regex in cast(list[str], self.regex_list)[insts_id])
                 + "]"
             )
             var_name_map = self.var_name_map_list[insts_id]
-            var_define_map = {}
+            var_define_map: dict[int | str | list[int], int] = {}
             var_result_stream = self.get_var_by_name("bs_result_stream", var_name_map)
             # print("var_result_stream", var_result_stream)
             if var_result_stream is not None:
@@ -389,21 +390,23 @@ class CudaGenerator(Generator):
                 "",
             ]
             self.add_lines(kernel_regex_file_handler, string_kernel_end)
-            if self.parallel_compile:
+            if self.parallel_compile and kernel_regex_file_handler:
                 kernel_regex_file_handler.close()
 
     def lower_kernel(self):
         # Write pre-defined template.
         if not self.parallel_compile:
             block_size = cfg.GLOBAL_CONFIG["block_size"][0]
-            self.kernel_file_handler.write(f"#define BLOCK_SIZE {block_size}\n")
+            if self.kernel_file_handler:
+                self.kernel_file_handler.write(f"#define BLOCK_SIZE {block_size}\n")
             template_path = os.path.join(
                 os.path.dirname(__file__),
                 "../backend/cuda/template/template.cu",
             )
             with open(template_path, "r", encoding="utf-8") as f:
                 template = f.read()
-                self.kernel_file_handler.write(template + "\n\n")
+                if self.kernel_file_handler:
+                    self.kernel_file_handler.write(template + "\n\n")
         # Generate regex as device function.
         self.lower_regex_function()
 
@@ -434,6 +437,7 @@ class CudaGenerator(Generator):
                         f'extern "C" __device__ void regex_{regex_id}(uint32_t* basic_stream, uint32_t n_unit_basic, uint32_t n_char, uint32_t* bs_result_stream, uint32_t* advance_memory, uint32_t* tmp_streams);'
                     )
 
+            assert self.kernel_file_handler != None
             self.add_lines(self.kernel_file_handler, kernel_link_code)
 
         block_size = cfg.GLOBAL_CONFIG["block_size"][0]
@@ -452,6 +456,8 @@ class CudaGenerator(Generator):
             string_kernel_start.append(
                 f"    dyn_stats = dyn_stats + blockIdx.y * {regex_num} * n_unit_basic + blockIdx.x * n_unit_basic;"
             )
+        
+        assert self.kernel_file_handler != None
         self.add_lines(self.kernel_file_handler, string_kernel_start)
 
         for regex_id in range(regex_num):
@@ -472,7 +478,7 @@ class CudaGenerator(Generator):
         string_kernel_end = "}\n"
         self.add_lines(self.kernel_file_handler, string_kernel_end)
 
-    def lower(self, input_path=None):
+    def lower(self, input_path: str | None = None) -> str:
         # Initialize kernel file
         kerne_wrapper_file_name = "kernel_0.py"
         kerne_wrapper_file_path = self.get_kernel_path(kerne_wrapper_file_name)

@@ -60,7 +60,7 @@ class Parser:
         for i in range(8):
             self.column[i] ^= 0xFFFFFFFF
 
-    def parse_symbol_set(self, symbol_set):
+    def parse_symbol_set(self, symbol_set: str) -> None:
         """
         Parses a symbol set string and sets corresponding bits in the column.
 

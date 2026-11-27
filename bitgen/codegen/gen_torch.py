@@ -1,9 +1,12 @@
-import os
 from itertools import chain
+from typing import cast
+
+from bitgen.inst.inst_block_while import BsWhile
+from bitgen.inst.inst_block import BsBlock
+from bitgen.inst.inst import BsInst
 
 from .gen import Generator
-from ..inst import BsInstType
-from ..inst import BsAdvance
+from ..inst import BsIf, BsInstType
 from .. import config as cfg
 
 
@@ -50,14 +53,14 @@ inst_name_map = {
 
 class TorchGenerator(Generator):
 
-    def __init__(self, insts_list, var_name_map_list, regex_list=None):
+    def __init__(self, insts_list: dict[int | str,str], var_name_map_list: dict[int | str,str], regex_list: list[str] | None = None) -> None:
         super().__init__(insts_list, var_name_map_list, regex_list)
         if len(insts_list) > 1:
             raise NotImplementedError("TorchGenerator only supports one kernel")
         self.torch_file_handler = None
-        self.module_map = {}  # inst_id -> module_name
-        self.module_type_num_map = {}  # module_type -> number
-        self.advance_count = {}  # var_id -> count
+        self.module_map: dict[int, str] = {}  # inst_id -> module_name
+        self.module_type_num_map: dict[BsInstType, int] = {}  # module_type -> number
+        self.advance_count: dict[int, int] = {}  # var_id -> count
 
     def close(self):
         if self.torch_file_handler is not None:
@@ -66,15 +69,15 @@ class TorchGenerator(Generator):
     def __del__(self):
         self.close()
 
-    def add_module(self, inst_id, inst, indent=""):
+    def add_module(self, inst_id: BsInstType, inst: BsInst, indent: str = ""):
         if inst.type == BsInstType.IF:
-            self.lower_module(list(chain(inst.body_1.body)), indent)
-            if inst.body_2 is not None:
-                self.lower_module(list(chain(inst.body_2.body)), indent)
+            self.lower_module(list(chain(cast(BsIf, inst).body_1.body)), indent)
+            if cast(BsIf, inst).body_2 is not None:
+                self.lower_module(list(chain(cast(BsBlock, cast(BsIf, inst).body_2).body)), indent)
             return ""
 
         if inst.type == BsInstType.WHILE:
-            self.lower_module(list(chain(inst.body.body)), indent)
+            self.lower_module(list(chain(cast(BsWhile, inst).body.body)), indent)
             return ""
 
         if inst_id in self.module_map:
@@ -85,20 +88,20 @@ class TorchGenerator(Generator):
             self.module_type_num_map[inst.type] = 0
         module_number = self.module_type_num_map[inst.type]
         module_name = inst_name_map[inst.type] + "_" + str(module_number)
-        self.module_map[inst_id] = module_name
+        self.module_map[inst_id.value] = module_name
         return module_name
 
-    def lower_module(self, insts, indent=""):
+    def lower_module(self, insts: list[BsInst] | None, indent: str = ""):
         if insts is None or len(insts) == 0:
             return
-        code_lines = []
+        code_lines: list[str] = []
 
         for idx, inst in enumerate(insts):
             if inst.operation != "":
                 continue
             if inst.type not in inst_module_name_map:
                 continue
-            module_name = self.add_module(idx, inst, indent)
+            module_name = self.add_module(BsInstType(idx), inst, indent)
             if module_name == "":
                 continue
             inst.operation = "self." + module_name
@@ -108,15 +111,17 @@ class TorchGenerator(Generator):
 
             code_lines.append(module_define)
         code_lines.append("")
+        assert self.torch_file_handler is not None
         self.torch_file_handler.write("\n".join(code_lines))
 
-    def lower_insts(self, insts, var_name_map, indent=""):
+    def lower_insts(self, insts: list[BsInst] | None, indent: str = "") -> None:
         if insts is None or len(insts) == 0:
             return
-        code_lines = []
+        code_lines: list[str] = []
         for inst in insts:
-            code_lines.append(inst.lower_to_torch(var_name_map, indent))
+            code_lines.append(inst.lower_to_torch(self.var_name_map_list, indent))
         code_lines.append("")
+        assert self.torch_file_handler is not None
         self.torch_file_handler.write("\n".join(code_lines))
 
     def lower_regex_function(self):
@@ -132,6 +137,7 @@ class TorchGenerator(Generator):
                 f"{indent}{indent}self.n_char = n_char",
                 "",
             ]
+            assert self.torch_file_handler is not None
             self.torch_file_handler.write("\n".join(string_define))
             self.lower_module(insts, indent * 2)
 

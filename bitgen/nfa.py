@@ -1,3 +1,4 @@
+from typing import cast
 import xml.etree.ElementTree as ET
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
@@ -10,14 +11,14 @@ from bitarray import bitarray
 class State:
 
     def __init__(
-        self, name="", id=-1, symbol_set="", start=-1, report=-1, loop_body=None
+        self, name="", id=-1, symbol_set="", start=-1, report: list=[], loop_body=None
     ):
         self.name = name
         self.id = id
         self.symbol_set_expr = symbol_set
         self.start = start  # 0="start-of-data", 1="all-input"
-        self.report = report
-        self.neighbors = None
+        self.report: list = report
+        self.neighbors: list[State] | None = None
         self.previous = []
         self.insts = []
         self.marker_stream = None
@@ -39,12 +40,12 @@ class State:
 class NFA:
     def __init__(self, anml_path):
         self.anml_path = anml_path
-        self.states = {}
-        self.state_name_map = None
+        self.states: dict[int,State] = {}
+        self.state_name_map: dict[str,int] | None = None
         self.state_num = 0
         self.edge_num = 0
 
-        self.graph = None
+        self.graph: nx.Graph | None = None
         self.graph_coo = None
         self.graph_csr = None
         self.symbol_set_map = {}
@@ -71,16 +72,16 @@ class NFA:
 
     def load_anml(self):
         tree = ET.parse(self.anml_path)
-        network = tree.getroot().find("automata-network")
+        network = cast(ET.Element[str], tree.getroot().find("automata-network"))
         self.state_num = len(list(network))
         shape = (self.state_num, self.state_num)
         row = []  # from
         col = []  # to
         self.state_name_map = {}
         for state in network.iter("state-transition-element"):
-            state_name = state.get("id")
+            state_name = cast(str, state.get("id"))
             state_id = self.get_state_id(state_name)
-            symbol_set = state.get("symbol-set")
+            symbol_set = cast(str, state.get("symbol-set"))
             self.symbol_set_map[state_id] = symbol_set
             start_string = state.get("start")  # "start-of-data", "all-input"
             start_int = self.start_string_to_int(start_string)
@@ -148,7 +149,7 @@ class NFA:
                 if escaped:
                     column[ord(c)] = value
                     if range_set:
-                        set_range(column, range_start, ord(c), value)
+                        set_range(column, cast(int, range_start), ord(c), value)
                         range_set = False
                     last_char = c
                     escaped = False
@@ -159,7 +160,7 @@ class NFA:
                 if escaped:
                     column[ord(c)] = value
                     if range_set:
-                        set_range(column, range_start, ord(c), value)
+                        set_range(column, cast(int, range_start), ord(c), value)
                         range_set = False
                     escaped = False
                     last_char = c
@@ -169,7 +170,7 @@ class NFA:
                 if escaped:
                     column[ord(c)] = value
                     if range_set:
-                        set_range(column, range_start, ord(c), value)
+                        set_range(column, cast(int, range_start), ord(c), value)
                         range_set = False
                     last_char = c
                     escaped = False
@@ -190,7 +191,7 @@ class NFA:
                 actual_char = ord(char_map[c]) if escaped else ord(c)
                 column[actual_char] = value
                 if range_set:
-                    set_range(column, range_start, actual_char, value)
+                    set_range(column, cast(int, range_start), actual_char, value)
                     range_set = False
                 last_char = actual_char
                 escaped = False
@@ -198,7 +199,7 @@ class NFA:
                 if escaped or last_char == OPEN_BRACKET:
                     column[ord("-")] = value
                     if range_set:
-                        set_range(column, range_start, ord("-"), value)
+                        set_range(column, cast(int, range_start), ord("-"), value)
                         range_set = False
                     escaped = False
                     last_char = "-"
@@ -226,7 +227,7 @@ class NFA:
                 number = int(hex_char, 16)
                 column[number] = value
                 if range_set:
-                    set_range(column, range_start, number, value)
+                    set_range(column, cast(int, range_start), number, value)
                     range_set = False
                 last_char = number
                 index += 2
@@ -236,7 +237,7 @@ class NFA:
                     escaped = False
                 column[ord(c)] = value
                 if range_set:
-                    set_range(column, range_start, ord(c), value)
+                    set_range(column, cast(int, range_start), ord(c), value)
                     range_set = False
                 last_char = ord(c)
             index += 1
@@ -257,7 +258,7 @@ class NFA:
         print("start state number: ", len(self.start_active_map))
         print("report state number: ", len(self.report_map))
         print("Edge number: ", self.edge_num)
-        connected_components = list(nx.weakly_connected_components(self.graph))
+        connected_components = list(nx.weakly_connected_components(self.graph)) # pyright: ignore[reportArgumentType]
         num_connected_components = len(connected_components)
         print("CC number: ", num_connected_components)
         print(" max CC size: ", max([len(cc) for cc in connected_components]))
@@ -292,7 +293,7 @@ class NFA:
                 else:
                     loop_symbol_set_type[symbol_set] = 1
                 symbol_set_bitarray = self.symbol_set_to_bitarray(symbol_set)
-                if symbol_set_bitarray.count() > select_condition:
+                if symbol_set_bitarray and symbol_set_bitarray.count() > select_condition:
                     selected_self_loop_num += 1
                     selected_degree += self.graph.out_degree(node)
                     if self.graph.out_degree(node) == 2:
@@ -375,10 +376,11 @@ class NFA:
             states.append(self.states[state_id])
         return states
 
-    def get_neighbor_states(self, state):
-        states = []
-        for neighbor_id in self.graph_csr[state.id].indices:
-            states.append(self.states[neighbor_id])
+    def get_neighbor_states(self, state) -> list[State]:
+        states: list[State] = []
+        if self.graph_csr:
+            for neighbor_id in self.graph_csr[state.id].indices:
+                states.append(self.states[neighbor_id])
         return states
 
     def init_neighbor_states(self):
@@ -395,13 +397,13 @@ class NFA:
             print("NFA state number > 32. Ignore NFA visualization.")
             return
 
-        pos = nx.spring_layout(self.graph)
-        nx.draw(self.graph, pos, with_labels=True)
+        pos = nx.spring_layout(self.graph) # pyright: ignore[reportArgumentType]
+        nx.draw(self.graph, pos, with_labels=True) # pyright: ignore[reportArgumentType]
         plt.savefig("graph.png")
 
     def check_loop_overlapping(self):
         from itertools import combinations
-        cycles = list(nx.simple_cycles(self.graph))
+        cycles = list(nx.simple_cycles(self.graph)) # pyright: ignore[reportArgumentType]
         for (cycle1, cycle2) in combinations(cycles, 2):
             if set(cycle1) & set(cycle2):
                 print("Found overlapping loop")

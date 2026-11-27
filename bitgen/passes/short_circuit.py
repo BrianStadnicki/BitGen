@@ -1,11 +1,12 @@
-import numpy as np
+from typing import cast
+
 import networkx as nx
-import matplotlib.pyplot as plt
 import time
 
-from ..inst import BsInstType, BsAssign, BsAdvance, BsIf, BsBlock, BsCall, BsStr
+from bitgen.inst.inst_block_while import BsInst
+
+from ..inst import BsInstType, BsAssign, BsBlock, BsStr
 from ..passes.pass_utils import (
-    remove_empty_insts,
     update_insts,
     build_graph,
     get_var_by_name,
@@ -16,20 +17,20 @@ from ..tool import global_timer
 
 
 class short_circuit_pass:
-    def __init__(self, profile=False):
+    def __init__(self, profile: bool = False):
         self.pass_name = "short_circuit"
         self.profile = profile
 
-    def get_and_chains(self, insts, var_name_map, G):
-        and_chains = []
+    def get_and_chains(self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str], G: "nx.DiGraph") -> list[list[int]]: # pyright: ignore[reportUnknownParameterType, reportMissingTypeArgument]
+        and_chains: list[list[int]] = []
         roots = range(8)  # first 8 inst are basic streamload
         end_node = len(insts) - 1
         # Get all consecutive and nodes
         for root in roots:
-            paths = list(nx.all_simple_paths(G, source=root, target=end_node))
+            paths: list[list[int]] = list(nx.all_simple_paths(G, source=root, target=end_node))
             for path in paths:
                 # print(path)
-                and_mask = []
+                and_mask: list[int] = []
                 # Break the path from the last CC node
                 # Reverse the path
 
@@ -44,7 +45,7 @@ class short_circuit_pass:
                     else:
                         and_mask.append(0)  # Terminate
 
-                and_chain = []
+                and_chain: list[int] = []
                 for n, m in zip(path, and_mask):
                     if m == 1:
                         and_chain.append(n)
@@ -63,7 +64,7 @@ class short_circuit_pass:
         # print(and_chains)
         return and_chains
 
-    def check_and_chain_overlap(self, start_node, end_node, removed_nodes):
+    def check_and_chain_overlap(self, start_node: int, end_node: int, removed_nodes: list[list[int]]):
         if start_node >= end_node:
             raise ValueError(
                 f"start_node should be less than end_node: start_node={start_node}, end_node={end_node}"
@@ -77,20 +78,20 @@ class short_circuit_pass:
                 return True
         return False
 
-    def remove_duplicate_sub_and_chains(self, and_chains):
+    def remove_duplicate_sub_and_chains(self, and_chains: list[list[int]]) -> list[list[int]]:
         # Remove duplicate chains and subchains
         and_chain_strings = [",".join(map(str, a)) for a in and_chains]
-        unique_strings = []
-        unique_and_chain = []
+        unique_strings: list[str] = []
+        unique_and_chain: list[list[int]] = []
         for a_id, a_s in enumerate(and_chain_strings):
             if not any(a_s in existing for existing in unique_strings):
                 unique_strings.append(a_s)
                 unique_and_chain.append(and_chains[a_id])
         return unique_and_chain
 
-    def run(self, insts, var_name_map):
+    def run(self, insts: list[BsInst], var_name_map: dict[int | str | list[int], str]):
         new_insts = insts.copy()
-        insert_insts = {}  # inst -> pos_id
+        insert_insts: dict[BsInst, int] = {}  # inst -> pos_id
         start_time = time.time()
         # print(insts)
         G = build_graph(insts, var_name_map)
@@ -100,7 +101,7 @@ class short_circuit_pass:
         )
         # paths = list(nx.dfs_preorder_nodes(G, source=0))
         # print(paths)
-        and_chains = self.get_and_chains(insts, var_name_map, G)
+        and_chains = self.get_and_chains(insts, var_name_map, G) # pyright: ignore[reportUnknownMemberType]
 
         short_circuit_start_pos = cfg.GLOBAL_CONFIG["pass_short_circuit_start"]
         short_circuit_interval = cfg.GLOBAL_CONFIG["pass_short_circuit_interval"]
@@ -116,7 +117,7 @@ class short_circuit_pass:
                 first_adv_inst_pos = inst_id
                 break
         # print("first_adv_inst_pos", first_adv_inst_pos)
-        new_and_chains = []
+        new_and_chains: list[list[int]] = []
         for and_chain in and_chains:
             for rnode_id, rnode in enumerate(and_chain):
                 if rnode > first_adv_inst_pos:
@@ -145,7 +146,7 @@ class short_circuit_pass:
         # Break the chain at OR nodes
         new_and_chains = []
         for and_chain in and_chains:
-            break_and_chain = []
+            break_and_chain: list[int] = []
             for a_node_id in range(len(and_chain) - 1):
                 a_node = and_chain[a_node_id]
                 a_node_next = and_chain[a_node_id + 1]
@@ -170,7 +171,7 @@ class short_circuit_pass:
         and_chains = new_and_chains
 
         # Avoid jump over used variables
-        use_var_map = {}  # var_id -> [used_inst_id]
+        use_var_map: dict[int | BsBlock | list[BsInst] | BsInst | str | list[int] | None, list[int]] = {}  # var_id -> [used_inst_id]
         for inst_id, inst in enumerate(insts):
             if inst.type in [BsInstType.WHILE, BsInstType.STR]:
                 continue
@@ -215,7 +216,7 @@ class short_circuit_pass:
             MyLogger.debug(
                 f"[short_circuit] and_chain candidate {and_chain_id} name: [{and_chain_ret_str}]"
             )
-        removed_nodes = []
+        removed_nodes: list[list[int]] = []
         removed_inst_num = 0
         removed_chain_num = 0
         for and_chain in and_chains:
@@ -235,7 +236,7 @@ class short_circuit_pass:
             for rev_and_chin_inst_id in range(end_node, start_node, -1):
                 if (
                     insts[rev_and_chin_inst_id].type == BsInstType.STR
-                    and "advance_memory[" in insts[rev_and_chin_inst_id].str
+                    and "advance_memory[" in cast(BsStr, insts[rev_and_chin_inst_id]).str
                 ):
                     last_cc_adv_mem_store_inst_id = rev_and_chin_inst_id
                     break
@@ -258,8 +259,8 @@ class short_circuit_pass:
                 len(and_chain[short_circuit_start_pos:]),
                 short_circuit_interval,
             )
-            inserted_node = []
-            inserted_node2 = []
+            inserted_node: list[int] = []
+            inserted_node2: list[int] = []
             if cfg.GLOBAL_CONFIG["pass_short_circuit_syncpoint"]:
                 for and_chain_node_id, and_chain_node_id_next in zip(
                     interval_list, interval_list[1:]
@@ -272,15 +273,15 @@ class short_circuit_pass:
                     for inst_id in range(and_chain_inst_id, and_chain_inst_id_next):
                         if (
                             insts[inst_id].type == BsInstType.STR
-                            and "sync" in insts[inst_id].str
+                            and "sync" in cast(BsStr, insts[inst_id]).str
                         ):
                             MyLogger.debug(
                                 f"[short_circuit] Insert block_all_zeros at sync point: inst_id={inst_id}, check={var_name_map[ret_id]}, label=LABEL{removed_chain_num}."
                             )
                             str_if_inst = BsStr(
-                                [
-                                    f"if (block_all_zeros({var_name_map[ret_id]}, &zero_flag)) {{ goto LABEL{removed_chain_num}; }}"
-                                ]
+                                (
+                                    f"if (block_all_zeros({var_name_map[ret_id]}, &zero_flag)) {{ goto LABEL{removed_chain_num}; }}",
+                                )
                             )
                             str_if_inst.comment = "sync point"
                             # insert_insts[str_if_inst] = inst_id + 1
@@ -292,9 +293,9 @@ class short_circuit_pass:
                                 f"[short_circuit] Insert block_all_zeros at sync point: inst_id={inst_id}, check={var_name_map[ret_id]}, label=LABEL{removed_chain_num}."
                             )
                             str_if_inst = BsStr(
-                                [
-                                    f"if (block_all_zeros({var_name_map[ret_id]}, &zero_flag)) {{ goto LABEL{removed_chain_num}; }}"
-                                ]
+                                (
+                                    f"if (block_all_zeros({var_name_map[ret_id]}, &zero_flag)) {{ goto LABEL{removed_chain_num}; }}",
+                                )
                             )
                             str_if_inst.comment = "sync point"
                             insert_insts[str_if_inst] = inst_id
@@ -316,12 +317,12 @@ class short_circuit_pass:
                     and_inst = insts[and_node]
                     ret_id = and_inst.ret
                     str_if_inst = BsStr(
-                        [
-                            f"if (block_all_zeros({var_name_map[ret_id]}, &zero_flag)) {{ goto LABEL{removed_chain_num}; }}"
+                        (
+                            f"if (block_all_zeros({var_name_map[ret_id]}, &zero_flag)) {{ goto LABEL{removed_chain_num}; }}",
                             # f"if (block_all_zeros({var_name_map[ret_id]})) {{ if(threadIdx.x==0){{printf(\"break at {and_inst_id/short_circuit_interval}\\n\");}} goto LABEL{removed_chain_num}; }}"
                             # f"if (warp_all_zeros({var_name_map[ret_id]})) {{ if(threadIdx.x==0){{printf(\"break\\n\");}}__syncthreads();  goto LABEL{removed_chain_num};  }} __syncthreads();"
                             # f"skip_flag = warp_all_zeros({var_name_map[ret_id]});"
-                        ]
+                        )
                     )
                     insert_insts[str_if_inst] = and_node + 1
                     inserted_node2.append(and_node)
@@ -331,7 +332,7 @@ class short_circuit_pass:
 
             # Define var to 0 outside the loop
             if len(inserted_node2) > 0 or len(inserted_node) > 0:
-                set_zero_var_id = []
+                set_zero_var_id: list[int | list[int]] = []
                 zero_var_id = get_var_by_name("0", var_name_map)
                 if last_cc_adv_mem_store_inst_id:
                     body_1_insts = insts[
@@ -345,12 +346,14 @@ class short_circuit_pass:
                         continue
                     if body_1_inst.type == BsInstType.STR:
                         continue
-                    zero_inst = BsAssign([zero_var_id], ret_var_id)
+                    assert zero_var_id != None
+                    assert isinstance(zero_var_id, int) or isinstance(zero_var_id, str)
+                    zero_inst = BsAssign((zero_var_id,), ret_var_id)
                     insert_insts[zero_inst] = start_node
                     set_zero_var_id.append(ret_var_id)
 
                 # Insert branch label at the end of the and_chain.
-                str_lable_inst = BsStr([f"LABEL{removed_chain_num}:"])
+                str_lable_inst = BsStr((f"LABEL{removed_chain_num}:",))
                 if last_cc_adv_mem_store_inst_id:
                     while insts[last_cc_adv_mem_store_inst_id].type == BsInstType.STR:
                         last_cc_adv_mem_store_inst_id -= 1
@@ -364,7 +367,6 @@ class short_circuit_pass:
             # insert_insts[inst_graph_break] = start_node + 1
 
         update_insts(new_insts, insert_insts)
-        new_insts = remove_empty_insts(new_insts)
         end_time = time.time()
         MyLogger.debug(
             f"[short_circuit]: process chain {end_time - start_time:.2f} seconds"
@@ -375,7 +377,6 @@ class short_circuit_pass:
         if cfg.GLOBAL_CONFIG["pass_inst_stats"]:
             if (
                 not hasattr(global_timer, "inst_result")
-                or global_timer.inst_result is None
             ):
                 global_timer.inst_result = {}
             global_timer.inst_result["removed_chain_num"] = (

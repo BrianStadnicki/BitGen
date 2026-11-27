@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from cuda.bindings import driver, nvrtc, nvjitlink
 from cuda.bindings.driver import (
     cuOccupancyMaxActiveBlocksPerMultiprocessor,
@@ -35,7 +37,7 @@ def _cudaGetErrorEnum(error):
         raise RuntimeError("Unknown error type: {}".format(error))
 
 
-def checkCudaErrors(result):
+def checkCudaErrors(result) -> Any | None:
     if result[0].value:
         raise RuntimeError(
             "CUDA error code={}({})".format(
@@ -136,7 +138,7 @@ class CUDA_Kernel:
         try:
             checkCudaErrors(nvrtc.nvrtcCompileProgram(prog, len(opts), opts))
         except Exception as e:
-            n = checkCudaErrors(nvrtc.nvrtcGetProgramLogSize(prog))
+            n = cast(int, checkCudaErrors(nvrtc.nvrtcGetProgramLogSize(prog)))
             log = b" " * n
             nvrtc.nvrtcGetProgramLog(prog, log)
             MyLogger.error(
@@ -144,7 +146,7 @@ class CUDA_Kernel:
             )
             raise e
         finally:
-            n = checkCudaErrors(nvrtc.nvrtcGetProgramLogSize(prog))
+            n = cast(int, checkCudaErrors(nvrtc.nvrtcGetProgramLogSize(prog)))
             log = b" " * n
             nvrtc.nvrtcGetProgramLog(prog, log)
             MyLogger.debug(
@@ -154,7 +156,7 @@ class CUDA_Kernel:
         MyLogger.info(f"[Compilation] Compilation time: {time_end - time_start:.2f}s")
 
         # Get PTX from compilation
-        ptxSize = checkCudaErrors(nvrtc.nvrtcGetPTXSize(prog))
+        ptxSize = cast(int, checkCudaErrors(nvrtc.nvrtcGetPTXSize(prog)))
         ptx = b" " * ptxSize
         MyLogger.debug(f"[Compilation] PTX size: {ptxSize} bytes")
         checkCudaErrors(nvrtc.nvrtcGetPTX(prog, ptx))
@@ -297,8 +299,14 @@ class CUDA_Kernel:
         self.block_size = block_size
 
     def kernel_info(self):
-        blocksize = self.block_size[0] * self.block_size[1] * self.block_size[2]
-        gridsize = self.grid_size[0] * self.grid_size[1] * self.grid_size[2]
+        if self.block_size:
+            blocksize = self.block_size[0] * self.block_size[1] * self.block_size[2]
+        else:
+            blocksize = 1
+        if self.grid_size:
+            gridsize = self.grid_size[0] * self.grid_size[1] * self.grid_size[2]
+        else:
+            gridsize = 1
         maxActiveBlocks = checkCudaErrors(
             cuOccupancyMaxActiveBlocksPerMultiprocessor(
                 func=self.kernel,
