@@ -36,7 +36,7 @@ setup(
     # include_package_data=True,
     ext_modules=[
         CUDAExtension(
-            name="bitgen.cuda",
+            name="bitgen.cudabitgen",
              sources=[
                 "bitgen/template/cuda/pybind.cpp",
                 "bitgen/template/cuda/kernel.cu",

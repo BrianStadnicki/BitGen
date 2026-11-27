@@ -21,7 +21,7 @@ import triton.language as tl
 from bitgen.tool import global_timer
 from bitgen.bitstream import Bitstream
 from bitgen import config as cfg
-from bitgen.cuda import cub_exclusive_scan
+from bitgen.cudabitgen import cub_exclusive_scan
 
 # bs_debug = True
 # bs_debug = False

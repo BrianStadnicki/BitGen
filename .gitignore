@@ -3,7 +3,7 @@
 
 build/
 
-bitgen/cuda.cpython-39-x86_64-linux-gnu.so
+bitgen/cudabitgen.cpython-313-x86_64-linux-gnu.so
 
 **/*.log
 log/*

@@ -110,6 +110,8 @@ BitGen translates bitstream programs into CUDA code. In this artifact, we use `i
 # Building BitGen
 source /opt/conda/etc/profile.d/conda.sh && conda activate bitgen-py310
 pip install --no-build-isolation .
+
+pip install --no-build-isolation -e .
 # Building Baseline
 ./scripts/install_icgrep.sh
 ./scripts/install_hs.sh

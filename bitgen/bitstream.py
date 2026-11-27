@@ -4,7 +4,7 @@ import torch
 import math
 
 from . import config as cfg
-from .cuda import byte_stream_transpose # pyright: ignore[reportMissingImports]
+from .cudabitgen import byte_stream_transpose # pyright: ignore[reportMissingImports]
 from .tool import global_timer
 
 

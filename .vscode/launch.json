@@ -9,9 +9,10 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${BITGEN_ROOT}/scripts/run_bitgen.py",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": "-f=${BITGEN_ROOT}/datasets_small/snort_small.regex     -i=${BITGEN_ROOT}/datasets_small/snort_10KB.input     --input-size=10000 --repeat-input=1 --multi-input=1  --split-input=1 --regex_num_from_file=-1 --regex_group_number=4     --parallel_compile_parabix=1 --backend=cuda --parallel_compile_cuda=1 --parallel_compile_cuda_lto=0     --check 1     --pass-graph-break=-1     --pass-cc-advanced=1 --pass-cc-advanced-max=8     --pass-short-circuit=1 --pass-short-circuit-start=2 --pass-short-circuit-interval=1 --pass-short-circuit-syncpoint=1",
-            "env": {"LOG": "DEBUG"}
+            "env": {"LOG": "DEBUG", "PYTHONPATH": "/opt/conda/envs/bitgen-py313/lib/python3.13/site-packages/cuda/:${workspaceFolder}/bitgen:/opt/conda/envs/bitgen-py313/lib/python3.13/site-packages/"}
         }
     ]
 }
