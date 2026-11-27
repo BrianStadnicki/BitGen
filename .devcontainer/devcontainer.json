@@ -26,6 +26,7 @@
         "source=../BitGen,target=/BitGen,type=bind,consistency=cache"
     ],
     "runArgs": [
+        "--network=host",
         "--gpus",
         "all"
     ]
