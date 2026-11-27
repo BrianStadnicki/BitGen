@@ -4,7 +4,7 @@ import torch
 import math
 
 from . import config as cfg
-from .cudabitgen import byte_stream_transpose # pyright: ignore[reportMissingImports]
+from .cudabitgen import byte_stream_transpose # pyright: ignore[reportUnknownVariableType, reportMissingImports]
 from .tool import global_timer
 
 
@@ -29,7 +29,7 @@ class Bitstream:
     def __init__(self, data: np.ndarray | None = None):
         if isinstance(data, np.ndarray):
             input_shape = list(data.shape)
-            if data is not None and data.dtype != bool:
+            if data.dtype != bool:
                 if data.dtype == np.uint32:
                     for i in range(len(data)):
                         data[i] = swap_endian(data[i])
@@ -42,13 +42,13 @@ class Bitstream:
                     bits_bool = bits.astype(bool)
                 else:
                     raise Exception(f"Invalid data type: {data.dtype}")
-            data = bits_bool.flatten()
+            data = bits_bool.flatten() # pyright: ignore[reportPossiblyUnboundVariable]
             input_shape[-1] = -1
             data = data.reshape(input_shape)
         else:
             raise Exception("Invalid data type")
 
-        self.data = data
+        self.data: np.ndarray = data
 
     def set_bit(self, i, value):
         self.data[i] = value

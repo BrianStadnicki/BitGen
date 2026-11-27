@@ -1,23 +1,22 @@
-from typing import cast
+from typing import Any, cast
 import xml.etree.ElementTree as ET
 import numpy as np
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import coo_matrix
 import networkx as nx
 import re
-import os
 import sys
 from bitarray import bitarray
 
 class State:
 
     def __init__(
-        self, name="", id=-1, symbol_set="", start=-1, report: list=[], loop_body=None
+        self, name: str = "", id : int =-1, symbol_set: str = "", start: int = -1, report: list[ET.Element[str]]=[], loop_body: None = None
     ):
         self.name = name
         self.id = id
         self.symbol_set_expr = symbol_set
         self.start = start  # 0="start-of-data", 1="all-input"
-        self.report: list = report
+        self.report: list[ET.Element[str]] = report
         self.neighbors: list[State] | None = None
         self.previous = []
         self.insts = []
@@ -27,7 +26,7 @@ class State:
     def is_report(self):
         return len(self.report) > 0
 
-    def match(self, symbol):
+    def match(self, symbol: str):
         return bool(re.fullmatch(self.symbol_set_expr, symbol))
 
     def __str__(self):
@@ -38,29 +37,29 @@ class State:
 
 
 class NFA:
-    def __init__(self, anml_path):
+    def __init__(self, anml_path: str) -> None:
         self.anml_path = anml_path
         self.states: dict[int,State] = {}
         self.state_name_map: dict[str,int] | None = None
         self.state_num = 0
         self.edge_num = 0
 
-        self.graph: nx.Graph | None = None
+        self.graph: nx.Graph | None = None # pyright: ignore[reportMissingTypeArgument]
         self.graph_coo = None
         self.graph_csr = None
-        self.symbol_set_map = {}
-        self.start_active_map = {}
-        self.always_active_map = {}
-        self.report_map = {}
+        self.symbol_set_map: dict[int, str] = {}
+        self.start_active_map: dict[int, int] = {}
+        self.always_active_map: dict[int, int] = {}
+        self.report_map: dict[int, int] = {}
 
-    def get_state_id(self, state_name):
+    def get_state_id(self, state_name: str) -> int:
         if self.state_name_map == None:
             raise ValueError("Please load ANML file first.")
         if state_name not in self.state_name_map:
             self.state_name_map[state_name] = len(self.state_name_map)
         return self.state_name_map[state_name]
 
-    def start_string_to_int(self, start_string):
+    def start_string_to_int(self, start_string: str | None) -> int:
         if start_string == "start-of-data":
             return 0
         elif start_string == "all-input":
@@ -75,8 +74,8 @@ class NFA:
         network = cast(ET.Element[str], tree.getroot().find("automata-network"))
         self.state_num = len(list(network))
         shape = (self.state_num, self.state_num)
-        row = []  # from
-        col = []  # to
+        row: list[int] = []  # from
+        col: list[int] = []  # to
         self.state_name_map = {}
         for state in network.iter("state-transition-element"):
             state_name = cast(str, state.get("id"))
@@ -91,22 +90,23 @@ class NFA:
                 self.always_active_map[state_id] = 1
             reports = state.findall("report-on-match")
             assert len(reports) <= 1
-            for report in reports:
-                report_code = report.get("reportcode")
+            for _ in reports:
+                # report_code = report.get("reportcode")
                 self.report_map[state_id] = 1
 
             neighbors = state.findall("activate-on-match")
             for neighbor in neighbors:
                 neighbor_name = neighbor.get("element")
+                assert neighbor_name is not None
                 row.append(state_id)
                 col.append(self.get_state_id(neighbor_name))
             state = State(state_name, state_id, symbol_set, start_int, reports)
             self.states[state_id] = state
         data = np.ones(len(row), dtype=int)
         self.edge_num = len(row)
-        self.graph_coo = coo_matrix((data, (row, col)), shape=shape)
+        self.graph_coo = coo_matrix((data, (row, col)), shape=shape) # type: ignore
         self.graph_csr = self.graph_coo.tocsr()
-        self.graph = nx.from_scipy_sparse_array(self.graph_csr, create_using=nx.DiGraph)
+        self.graph = nx.from_scipy_sparse_array(self.graph_csr, create_using=nx.DiGraph) # pyright: ignore[reportUnknownMemberType]
 
     # Translate from Jack Wadden's VASim by chatgpt
     def symbol_set_to_bitarray(self, symbol_set: str):
@@ -125,7 +125,6 @@ class NFA:
             column[ord("\n")] = 0
             return
 
-        in_charset = False
         escaped = False
         inverting = False
         range_set = False
@@ -264,9 +263,9 @@ class NFA:
         print(" max CC size: ", max([len(cc) for cc in connected_components]))
         print(" avg CC size: ", np.mean([len(cc) for cc in connected_components]))
 
-        if isinstance(self.graph, nx.DiGraph):
-            in_degrees = [deg for node, deg in self.graph.in_degree()]
-            out_degrees = [deg for node, deg in self.graph.out_degree()]
+        if isinstance(self.graph, nx.DiGraph): # pyright: ignore[reportUnknownMemberType]
+            in_degrees = [deg for _, deg in self.graph.in_degree()] # pyright: ignore[reportUnknownMemberType]
+            out_degrees = [deg for _, deg in self.graph.out_degree()] # pyright: ignore[reportUnknownMemberType]
             avg_in_degree = sum(in_degrees) / self.state_num
             avg_out_degree = sum(out_degrees) / self.state_num
             max_in_degree = max(in_degrees)
@@ -277,16 +276,17 @@ class NFA:
             print("Max out-degree: ", max_out_degree)
 
             # Loop
-            print("Loop number: ", len(list(nx.simple_cycles(self.graph))))
-            print("self loop number: ", len(list(nx.nodes_with_selfloops(self.graph))))
+            print("Loop number: ", len(list(nx.simple_cycles(self.graph)))) # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            print("self loop number: ", len(list(nx.nodes_with_selfloops(self.graph)))) # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
-            loop_symbol_set_type = {}
+            loop_symbol_set_type: dict[str, int] = {}
 
             selected_self_loop_num = 0
             select_condition = 254
             selected_degree = 0
             selected_degree_2 = 0
-            for node in nx.nodes_with_selfloops(self.graph):
+            for node in nx.nodes_with_selfloops(self.graph): # type: ignore
+                node = cast(int, node)
                 symbol_set = self.symbol_set_map[node]
                 if symbol_set in loop_symbol_set_type:
                     loop_symbol_set_type[symbol_set] += 1
@@ -295,8 +295,8 @@ class NFA:
                 symbol_set_bitarray = self.symbol_set_to_bitarray(symbol_set)
                 if symbol_set_bitarray and symbol_set_bitarray.count() > select_condition:
                     selected_self_loop_num += 1
-                    selected_degree += self.graph.out_degree(node)
-                    if self.graph.out_degree(node) == 2:
+                    selected_degree += self.graph.out_degree(node) # pyright: ignore[reportUnknownMemberType]
+                    if self.graph.out_degree(node) == 2: # pyright: ignore[reportUnknownMemberType]
                         selected_degree_2 += 1
                 # print(
                 #     node,
@@ -326,8 +326,8 @@ class NFA:
             #     loop_symbol_set_type,
             #     file=sys.stderr,
             # )
-            symbol_set_type = {}
-            for node in self.graph.nodes():
+            symbol_set_type: dict[str, int] = {}
+            for node in self.graph.nodes(): # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
                 symbol_set = self.symbol_set_map[node]
                 if symbol_set in symbol_set_type:
                     symbol_set_type[symbol_set] += 1
@@ -344,8 +344,9 @@ class NFA:
 
             successors_set_dict = {}
             sequence_node_num = 0
-            for node in self.graph.nodes():
-                successors_list = list(self.graph.successors(node))
+            for node in self.graph.nodes(): # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+                node = cast(int, node)
+                successors_list = list(self.graph.successors(node)) # type: ignore
                 successors = self.graph.successors(node)
                 successors_set  = frozenset(successors)
                 ss = (self.symbol_set_map[node], successors_set)
